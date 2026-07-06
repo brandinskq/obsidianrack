@@ -235,7 +235,7 @@
         <input type="range" id="elec_r" min="0.02" max="0.20" step="0.001">
       </div>
       <div class="drv">
-        <div class="row"><label>GPU rental price<span class="hint" id="rentNote">start price</span><span class="ttip" data-tip="GPU-hour rental price (start). B300 spot ~$2.45, dedicated ~$6.80, managed $12-18. $4.00 on a 5yr lock is a defensible contracted rate.">ⓘ</span></label>
+        <div class="row"><label>GPU rental price<span class="hint" id="rentNote">start price</span><span class="ttip" data-tip="GPU-hour rental price (start). B300 spot ~$2.45, dedicated ~$6.80, managed $12-18. $4.40 on a 5yr lock is a defensible contracted rate.">ⓘ</span></label>
           <div class="val"><input type="number" id="rental" step="0.10"><span class="unit">$ / GPU-hr</span></div></div>
         <input type="range" id="rental_r" min="0.5" max="12" step="0.1">
       </div>
@@ -289,7 +289,7 @@
 <script>
 /* ═══════════════ defaults & fields ═══════════════ */
 const DEF={
-  serverPrice:550000, elec:0.047, rental:4.00, years:5, netPct:0.12, transitMo:40000,
+  serverPrice:550000, elec:0.047, rental:4.40, years:5, netPct:0.12, transitMo:40000,
   servers:512, gpus:8, deployMonths:3, leadMonths:2, lockYears:5,
   coloMW:2, coloRate:220, coloLeaseYears:10, coloEsc:0.025,
   rentalDecline:0.12, utilStart:0.45, utilSteady:0.85, utilRamp:6,
