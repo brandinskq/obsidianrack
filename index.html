@@ -133,6 +133,9 @@
     letter-spacing:0;text-transform:none;white-space:normal}
   .ttip:hover::before{content:'';position:absolute;left:50%;bottom:calc(100% + 2px);transform:translateX(-50%);
     border:6px solid transparent;border-top-color:var(--line2);z-index:100;pointer-events:none}
+  /* rail tooltips: anchor to the icon and open rightward so the left viewport edge never clips them */
+  .rail .ttip:hover::after{left:0;right:auto;transform:none;width:min(260px,80vw)}
+  .rail .ttip:hover::before{left:6px;right:auto;transform:none}
   .unit{color:var(--dim);font-size:9.5px;width:64px;line-height:1.2}
   input[type=range]{width:100%;accent-color:var(--compute);height:3px}
   .drawer{margin-bottom:10px}
