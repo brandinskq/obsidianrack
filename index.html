@@ -337,6 +337,8 @@ const PRODUCTS=[
    ov:{coloMW:8}},
 ];
 let PROD='ownbuild';
+/* keys any product preset overrides — reset these to DEF on product switch so a prior preset (e.g. GPU-aaS util 75%) doesn't leak into the next */
+const OV_KEYS=[...new Set(PRODUCTS.flatMap(p=>Object.keys(p.ov||{})))];
 
 const F_REV=[
   {k:'gpus',label:'GPUs per server',unit:'#',step:1,info:'GPUs per node. HGX/DGX B300 is 8. Sets GPU-count rounding and per-node power.'},
@@ -973,6 +975,7 @@ function setProduct(id){
   PROD=id;
   T={...T, ...prod.tog};
   T._gpu=prod.gpu;
+  OV_KEYS.forEach(k=>{if(k in DEF)S[k]=DEF[k];});
   Object.assign(S, prod.ov);
   // show/hide GPU-specific core inputs for PropCo-only products
   ['serverPrice','gpuCount','netPct','powerKW'].forEach(k=>{
