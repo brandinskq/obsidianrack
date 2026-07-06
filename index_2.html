@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI Infrastructure Investment Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0f; --surface:#101018; --raised:#16161f; --line:#1e1e28; --line2:#2a2a36;
+    --ink:#f5f6f8; --muted:#8a8a96; --dim:#565662;
+    --compute:#c8ff00;         /* Obsidian Rack lime — exact brand accent */
+    --compute-dim:#5f7d00;
+    --power:#7dd3fc;           /* sky — secondary layer (power/facility) */
+    --power-dim:#2e5f7d;
+    --pass:#c8ff00; --fail:#ff5c6c; --equity:#c084fc; --neutral:#8a8a96;
+    --mono:"SF Mono",ui-monospace,"Cascadia Code",Consolas,"Roboto Mono",monospace;
+    --sans:"Inter",-apple-system,system-ui,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;padding:0 20px 28px}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+
+  /* ── deal tape ─────────────────────────────── */
+  .tape{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+    padding:16px 2px 14px;border-bottom:1px solid var(--line)}
+  .brandwrap{display:flex;align-items:center;gap:12px}
+  .logo{width:30px;height:30px;flex:none}
+  .wordmark{font-family:var(--sans);font-weight:800;font-size:16px;letter-spacing:.14em;
+    color:var(--ink);line-height:1;display:flex;flex-direction:column;gap:3px}
+  .wm-sub{font-family:var(--mono);font-weight:500;font-size:9px;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--compute)}
+  .tape .statusline{font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.02em;
+    width:100%;padding-top:10px}
+  .tape .statusline b{color:var(--ink);font-weight:600}
+  .tape .statusline .cy{color:var(--compute)} .tape .statusline .am{color:var(--power)}
+  .tape .brand-legacy{display:none}
+  .online-badge{display:inline-flex;align-items:center;gap:6px;margin-left:14px;
+    font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.18em;
+    color:var(--compute);text-transform:uppercase;padding:4px 9px;
+    border:1px solid var(--compute-dim);border-radius:2px}
+  .online-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--compute);
+    box-shadow:0 0 6px var(--compute);animation:pulse 2.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .tape .actions{display:flex;gap:8px}
+  .btn{border:1px solid var(--line2);background:var(--raised);color:var(--muted);
+    border-radius:2px;padding:8px 14px;font-size:11px;font-weight:600;cursor:pointer;
+    letter-spacing:.03em;text-transform:uppercase;font-family:var(--mono)}
+  .btn:hover{color:var(--ink);border-color:var(--compute)}
+  .btn.solid{background:var(--compute);color:#000;border-color:var(--compute);font-weight:700}
+  .btn.solid:hover{background:#d4ff45;border-color:#d4ff45}
+
+  /* ── layout ────────────────────────────────── */
+  .wrap{display:flex;gap:18px;align-items:flex-start;margin-top:18px;flex-wrap:wrap}
+  .rail{width:376px;min-width:320px;flex-shrink:0}
+  .main{flex:1;min-width:360px}
+
+  /* ── verdict ───────────────────────────────── */
+  .verdict{display:flex;align-items:stretch;gap:0;border:1px solid var(--line);border-radius:3px;
+    overflow:hidden;margin-bottom:14px;background:var(--surface)}
+  .verdict .word{display:flex;flex-direction:column;justify-content:center;padding:18px 26px;min-width:210px;
+    border-right:1px solid var(--line)}
+  .verdict .word .w{font-size:27px;font-weight:800;letter-spacing:.04em;font-family:var(--mono)}
+  .verdict .word .sub{font-size:11px;color:var(--muted);margin-top:4px}
+  .verdict .tests{display:flex;flex:1;flex-wrap:wrap}
+  .test{flex:1;min-width:150px;padding:14px 18px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:4px}
+  .test:last-child{border-right:none}
+  .test .tl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  .test .tv{font-family:var(--mono);font-size:16px;font-weight:700}
+  .test .tc{font-size:10.5px;color:var(--muted)}
+
+  /* ── KPI grid ──────────────────────────────── */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:10px;margin-bottom:14px}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:12px 14px}
+  .kpi .l{color:var(--dim);font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;margin-bottom:7px}
+  .kpi .v{font-family:var(--mono);font-size:21px;font-weight:700;line-height:1.05;letter-spacing:-.02em}
+  .kpi .s{color:var(--muted);font-size:10.5px;margin-top:4px}
+
+  /* ── cards & tables ────────────────────────── */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:14px 16px;margin-bottom:14px}
+  .card .h{font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.16em;text-transform:uppercase;margin-bottom:12px}
+  .duo{display:flex;gap:14px;flex-wrap:wrap}
+  .duo>.card{flex:1;min-width:300px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{color:var(--dim);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    padding:0 6px 8px 0;text-align:right}
+  th:first-child{text-align:left}
+  td{font-family:var(--mono);font-variant-numeric:tabular-nums;padding:6.5px 6px 6.5px 0;
+    text-align:right;border-top:1px solid var(--line);color:var(--ink)}
+  td:first-child{font-family:var(--sans);text-align:left}
+  tr.bold td{font-weight:700}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;font-size:11px;color:var(--muted)}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:baseline}
+  .heat td{font-family:var(--mono);text-align:center;padding:8px 4px;font-weight:700;border:2px solid var(--bg);border-radius:4px;font-size:11.5px}
+  .foot{color:var(--dim);font-size:10.5px;margin-top:6px;line-height:1.55}
+
+  /* ── rail controls ─────────────────────────── */
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:14px 16px;margin-bottom:12px}
+  .panel .ph{font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  .drv{padding:11px 0;border-bottom:1px solid var(--line)}
+  .drv:last-child{border-bottom:none;padding-bottom:4px}
+  .drv .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;gap:10px}
+  .drv label{font-size:13px;font-weight:600}
+  .drv .hint{font-size:10px;color:var(--dim);display:block;margin-top:2px;font-weight:400}
+  .drv .row label{overflow:visible}
+  .drv .row label .ttip{margin-left:5px;vertical-align:middle}
+  .val{display:flex;align-items:center;gap:7px;flex-shrink:0}
+  input[type=number]{width:100px;text-align:right;background:var(--bg);color:var(--ink);
+    font-family:var(--mono);font-weight:600;border:1px solid var(--line2);border-radius:6px;
+    padding:5px 8px;font-size:13px;outline:none}
+  input[type=number]:focus{border-color:var(--compute)}
+  select{background:var(--bg);color:var(--ink);font-family:var(--mono);font-weight:600;
+    border:1px solid var(--line2);border-radius:6px;padding:5px 8px;font-size:12.5px;outline:none;cursor:pointer}
+  select:focus{border-color:var(--compute)}
+  .modeseg{display:flex;gap:0;border:1px solid var(--line2);border-radius:6px;overflow:hidden}
+  .modebtn{flex:1;background:var(--bg);color:var(--muted);border:none;padding:6px 10px;font-family:var(--mono);
+    font-size:11.5px;font-weight:600;cursor:pointer;transition:all .12s;white-space:nowrap}
+  .modebtn:first-child{border-right:1px solid var(--line2)}
+  .modebtn.on{background:var(--compute);color:#000}
+  .flabel{display:inline-flex;align-items:center;gap:5px}
+  .ttip{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;
+    font-size:9px;color:var(--muted);border:1px solid var(--line2);cursor:help;position:relative;flex:none;font-style:normal}
+  .ttip:hover{color:var(--compute);border-color:var(--compute)}
+  .ttip:hover::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);
+    width:250px;background:#0a1520;color:#c8d4e0;border:1px solid var(--line2);border-radius:8px;padding:9px 11px;
+    font-size:11px;line-height:1.5;font-weight:400;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.5);pointer-events:none;
+    letter-spacing:0;text-transform:none;white-space:normal}
+  .ttip:hover::before{content:'';position:absolute;left:50%;bottom:calc(100% + 2px);transform:translateX(-50%);
+    border:6px solid transparent;border-top-color:var(--line2);z-index:100;pointer-events:none}
+  .unit{color:var(--dim);font-size:9.5px;width:64px;line-height:1.2}
+  input[type=range]{width:100%;accent-color:var(--compute);height:3px}
+  .drawer{margin-bottom:10px}
+  .drawer>button{width:100%;display:flex;justify-content:space-between;align-items:center;
+    background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:10px 14px;
+    cursor:pointer;color:var(--ink);font-size:12px;font-weight:600;letter-spacing:.02em}
+  .drawer>button:hover{border-color:var(--line2)}
+  .drawer .dbody{padding:6px 14px 4px;background:var(--surface);border:1px solid var(--line);
+    border-top:none;border-radius:0 0 9px 9px;display:none}
+  .drawer.open .dbody{display:block}
+  .drawer .mark{color:var(--dim);font-family:var(--mono)}
+  .arow{display:flex;justify-content:space-between;align-items:center;padding:5.5px 0}
+  .arow>span:first-child{color:var(--muted);font-size:12px}
+  .arow input[type=number]{width:88px;font-weight:500;font-size:12.5px}
+  .tog{display:flex;justify-content:space-between;align-items:center;padding:7.5px 0;border-bottom:1px solid var(--line)}
+  .tog:last-child{border-bottom:none}
+  .tog label{font-size:12px;color:var(--ink);font-weight:600}
+  .switch{position:relative;width:36px;height:19px;flex-shrink:0}
+  .switch input{opacity:0;width:0;height:0}
+  .sl{position:absolute;cursor:pointer;inset:0;background:var(--raised);border:1px solid var(--line2);border-radius:19px;transition:.15s}
+  .sl:before{content:"";position:absolute;height:11px;width:11px;left:3px;top:3px;background:var(--dim);border-radius:50%;transition:.15s}
+  .switch input:checked+.sl{background:rgba(200,255,0,.16);border-color:var(--compute-dim)}
+  .switch input:checked+.sl:before{transform:translateX(17px);background:var(--compute)}
+  @media (max-width:900px){.rail{width:100%}}
+  /* ── product selector ─────────────────────── */
+  .prodbar{display:flex;gap:8px;flex-wrap:wrap;padding:16px 2px 6px}
+  .prodcard{flex:1;min-width:150px;background:var(--surface);border:1px solid var(--line2);
+    border-radius:2px;padding:12px 14px;cursor:pointer;transition:all .14s;text-align:left}
+  .prodcard:hover{border-color:var(--compute-dim)}
+  .prodcard.on{border-color:var(--compute);background:rgba(200,255,0,.05)}
+  .prodcard .pn{font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:3px;letter-spacing:.01em;display:flex;align-items:baseline;gap:7px}
+  .prodcard .pnum{font-family:var(--mono);font-size:9.5px;font-weight:600;color:var(--compute);opacity:.75;letter-spacing:.05em}
+  .prodcard.on .pn{color:var(--compute)}
+  .prodcard.on .pnum{opacity:1}
+  .prodcard .ps{font-size:10px;color:var(--dim);line-height:1.4}
+  /* ── model selector ───────────────────────── */
+  .modelbar{display:flex;gap:6px;flex-wrap:wrap;padding:4px 2px 12px;align-items:center}
+  .modelbar .mlabel{font-size:9.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-right:4px;font-family:var(--mono)}
+  .modelbtn{background:var(--bg);color:var(--muted);border:1px solid var(--line2);border-radius:2px;
+    padding:7px 13px;font-family:var(--mono);font-size:11.5px;font-weight:600;cursor:pointer;transition:all .12s}
+  .modelbtn:hover{border-color:var(--compute-dim);color:var(--ink)}
+  .modelbtn.on{background:var(--compute);color:#000;border-color:var(--compute)}
+  .modelbtn .mp{font-size:9px;opacity:.65;font-weight:400}
+  .modelbtn.on .mp{opacity:.8}
+  .modelbar.hidden{display:none}
+</style>
+</head>
+<body>
+
+<div class="tape">
+  <div class="brandwrap">
+    <svg class="logo" width="30" height="30" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Obsidian Rack">
+      <polygon points="14,68 8,34 28,4 44,10 64,52 50,68" fill="#16161F" stroke="var(--compute)" stroke-width="1.4"/>
+      <line x1="28" y1="4" x2="38" y2="36" stroke="var(--compute)" stroke-width="0.9" opacity="0.7"/>
+      <line x1="38" y1="36" x2="64" y2="52" stroke="var(--compute)" stroke-width="0.9" opacity="0.7"/>
+      <polygon points="28,4 44,10 38,36" fill="var(--compute)" opacity="0.14"/>
+      <line x1="28" y1="4" x2="8" y2="34" stroke="var(--compute)" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+    </svg>
+    <div class="wordmark">OBSIDIAN RACK<span class="wm-sub">Investment Model</span></div>
+    <span class="online-badge"><span class="dot"></span>MODEL · LIVE</span>
+  </div>
+  <div class="actions">
+    <button class="btn" onclick="preset('saudi')">Saudi power</button>
+    <button class="btn solid" onclick="resetAll()">Reset</button>
+  </div>
+  <div class="statusline" id="tape"></div>
+</div>
+
+<div class="prodbar" id="prodbar"></div>
+<div class="modelbar" id="modelbar"></div>
+
+<div class="wrap">
+  <!-- ───────── rail ───────── -->
+  <div class="rail">
+    <div class="panel">
+      <div class="ph">Core inputs</div>
+      <div class="drv">
+        <div class="row"><label>Server price<span class="hint">per 8-GPU server, all-in</span><span class="ttip" data-tip="All-in price per 8-GPU node. HGX B300 OEM systems run ~$430-550k incl. liquid cooling; DGX B300 lists $300-350k. Confirm whether your quote includes networking.">ⓘ</span></label>
+          <div class="val"><input type="number" id="serverPrice" step="10000"><span class="unit">$ / server</span></div></div>
+        <input type="range" id="serverPrice_r" min="100000" max="1200000" step="10000">
+      </div>
+      <div class="drv">
+        <div class="row"><label>Number of GPUs<span class="hint" id="srvNote">8-GPU HGX B300 nodes</span><span class="ttip" data-tip="Total GPU count, stepped in 1,024 (128 nodes × 8). Internally converted to whole servers. Drives capex, power and MW.">ⓘ</span></label>
+          <div class="val"><input type="number" id="gpuCount" step="1024"><span class="unit">GPUs</span></div></div>
+        <input type="range" id="gpuCount_r" min="1024" max="40960" step="1024">
+      </div>
+      <div class="drv">
+        <div class="row"><label>Network capex<span class="hint">IB/RoCE fabric · switches, optics, cabling</span><span class="ttip" data-tip="Back-end IB/RoCE fabric — switches, optics, cabling — as % of server capex. ~10-12% for a 4k-GPU two-tier fabric; rises toward 15% at 10k+ as optics counts grow. Set to 0 if your server quote already includes networking.">ⓘ</span></label>
+          <div class="val"><input type="number" id="netPct" step="1"><span class="unit">% of server capex</span></div></div>
+        <input type="range" id="netPct_r" min="0" max="25" step="1">
+      </div>
+      <div class="drv">
+        <div class="row"><label>IT power / server<span class="hint">HGX B300 node</span><span class="ttip" data-tip="IT power draw per node. B300 8-GPU ≈ 11.2kW GPUs + 2-3kW CPU/mem/NIC = 13-15kW. Drives electricity and facility MW sizing.">ⓘ</span></label>
+          <div class="val"><input type="number" id="powerKW" step="0.5"><span class="unit">kW</span></div></div>
+        <input type="range" id="powerKW_r" min="8" max="25" step="0.5">
+      </div>
+      <div class="drv">
+        <div class="row"><label>Electricity price<span class="hint">grid tariff</span><span class="ttip" data-tip="Grid electricity tariff. Saudi industrial power ≈ $0.047/kWh — among the cheapest globally, a core structural advantage. Multiplied by PUE.">ⓘ</span></label>
+          <div class="val"><input type="number" id="elec" step="0.001"><span class="unit">$ / kWh</span></div></div>
+        <input type="range" id="elec_r" min="0.02" max="0.20" step="0.001">
+      </div>
+      <div class="drv">
+        <div class="row"><label>GPU rental price<span class="hint" id="rentNote">start price</span><span class="ttip" data-tip="GPU-hour rental price (start). B300 spot ~$2.45, dedicated ~$6.80, managed $12-18. $4.00 on a 5yr lock is a defensible contracted rate.">ⓘ</span></label>
+          <div class="val"><input type="number" id="rental" step="0.10"><span class="unit">$ / GPU-hr</span></div></div>
+        <input type="range" id="rental_r" min="0.5" max="12" step="0.1">
+      </div>
+      <div class="drv">
+        <div class="row"><label>IDC strategy<span class="hint">own-build capex vs lease colocation</span></label>
+          <div class="modeseg"><button id="mode_build" class="modebtn" onclick="setIdcMode(true)">Own-build</button><button id="mode_lease" class="modebtn" onclick="setIdcMode(false)">Lease / colo</button></div>
+        </div>
+      </div>
+      <div class="drv" id="drv_build">
+        <div class="row"><label>IDC / facility build<span class="hint">air-cooled Tier III, per MW IT</span><span class="ttip" data-tip="All-in facility construction cost per MW IT (own-build). Air-cooled Tier III ~$8-10M; liquid-cooled for B300 density ~$11-13M. Excludes servers, network, and depreciation.">ⓘ</span></label>
+          <div class="val"><input type="number" id="facilityPerMW" step="0.5"><span class="unit">$M / MW</span></div></div>
+        <input type="range" id="facilityPerMW_r" min="3" max="20" step="0.5">
+      </div>
+      <div class="drv" id="drv_lease">
+        <div class="row"><label>Colocation rent<span class="hint">rack + power capacity, excl. metered power</span><span class="ttip" data-tip="Colocation rent you pay a third-party DC per kW of IT capacity (lease mode), excl. metered power. Market $150-215/kW/mo. No facility capex, no depreciation — pure opex.">ⓘ</span></label>
+          <div class="val"><input type="number" id="coloPerKWMo" step="10"><span class="unit">$ / kW / mo</span></div></div>
+        <input type="range" id="coloPerKWMo_r" min="80" max="400" step="10">
+      </div>
+      <div class="drv">
+        <div class="row"><label>Hold / useful life<span class="hint">horizon &amp; depreciation</span></label>
+          <div class="val"><input type="number" id="years" step="1"><span class="unit">years</span></div></div>
+        <input type="range" id="years_r" min="1" max="8" step="1">
+      </div>
+    </div>
+
+    <div class="drawer open" id="d_sw">
+      <button onclick="toggle('d_sw')"><span>Model switches</span><span class="mark" id="d_sw_m">−</span></button>
+      <div class="dbody">
+        <div class="tog"><label>Debt leverage</label><label class="switch"><input type="checkbox" id="t_debt" checked><span class="sl"></span></label></div>
+        <div class="tog"><label>Merchant colocation segment</label><label class="switch"><input type="checkbox" id="t_colo" checked><span class="sl"></span></label></div>
+        <div class="tog"><label>Corporate G&amp;A (standalone co.)</label><label class="switch"><input type="checkbox" id="t_ga" checked><span class="sl"></span></label></div>
+        <div class="tog"><label>Working capital (AR days)</label><label class="switch"><input type="checkbox" id="t_wc" checked><span class="sl"></span></label></div>
+        <div class="tog"><label>Exit at EV/EBITDA multiple</label><label class="switch"><input type="checkbox" id="t_exit" checked><span class="sl"></span></label></div>
+        <div class="tog"><label>Re-contract at current price</label><label class="switch"><input type="checkbox" id="t_exitcur"><span class="sl"></span></label></div>
+        <div class="tog"><label>Contract price lock (5-yr)</label><label class="switch"><input type="checkbox" id="t_lock" checked><span class="sl"></span></label></div>
+        <div class="tog"><label>Rental price erosion</label><label class="switch"><input type="checkbox" id="t_decline" checked><span class="sl"></span></label></div>
+        <div class="tog"><label>Utilization ramp-up</label><label class="switch"><input type="checkbox" id="t_util" checked><span class="sl"></span></label></div>
+        <div class="tog"><label>Phased deployment</label><label class="switch"><input type="checkbox" id="t_phase" checked><span class="sl"></span></label></div>
+      </div>
+    </div>
+
+    <div class="drawer" id="d_rev"><button onclick="toggle('d_rev')"><span>Revenue &amp; deployment</span><span class="mark" id="d_rev_m">+</span></button><div class="dbody" id="body_rev"></div></div>
+    <div class="drawer" id="d_cost"><button onclick="toggle('d_cost')"><span>Cost structure</span><span class="mark" id="d_cost_m">+</span></button><div class="dbody" id="body_cost"></div></div>
+    <div class="drawer" id="d_fin"><button onclick="toggle('d_fin')"><span>Financing &amp; returns</span><span class="mark" id="d_fin_m">+</span></button><div class="dbody" id="body_fin"></div></div>
+  </div>
+
+  <!-- ───────── main ───────── -->
+  <div class="main" id="out"></div>
+</div>
+
+<script>
+/* ═══════════════ defaults & fields ═══════════════ */
+const DEF={
+  serverPrice:550000, elec:0.047, rental:4.00, years:5, netPct:0.12, transitMo:40000,
+  servers:512, gpus:8, deployMonths:3, leadMonths:2, lockYears:5,
+  coloMW:2, coloRate:220, coloLeaseYears:10, coloEsc:0.025,
+  rentalDecline:0.12, utilStart:0.45, utilSteady:0.85, utilRamp:6,
+  powerKW:15, pue:1.45, warrantyPct:0.05, otherPct:0.025, residualPct:0.20, tax:0.15,
+  gaAnnual:3340000, gaInfl:0.08,
+  facilityPerMW:9000000, facilityLife:18,
+  siteRentPerMW:150000, coloPerKWMo:200,
+  arDays:45, feePct:0.01, exitMult:8,
+  debtPct:0.60, debtRate:0.08, debtTenor:36, disc:0.12,
+};
+const TOG={debt:true, decline:true, util:true, phase:true, facility:true, lock:true, ga:true, wc:true, exit:true, exitcur:false, colo:true};
+let S={...DEF}, T={...TOG};
+
+/* ═══════════════ GPU model catalogue (turnkey landed prices, mid-2026) ═══════════════ */
+/* nodeCost = full system: GPUs + CPU/mem/storage + chassis + liquid cooling + integration */
+const GPU_MODELS=[
+  {id:'h100',  name:'H100 SXM',    gpus:8,  power:10.2, cost:280000,  liquid:false, unit:'node'},
+  {id:'h200',  name:'H200',        gpus:8,  power:10.4, cost:320000,  liquid:false, unit:'node'},
+  {id:'b200',  name:'B200',        gpus:8,  power:14.0, cost:420000,  liquid:false, unit:'node'},
+  {id:'b300',  name:'B300',        gpus:8,  power:15.0, cost:550000,  liquid:true,  unit:'node'},
+  {id:'gb300', name:'GB300 NVL72', gpus:72, power:140,  cost:3850000, liquid:true,  unit:'rack'},
+];
+let GPU='b300'; // current model id
+
+/* ═══════════════ product definitions ═══════════════ */
+/* each product = a switch preset + default overrides. Engine unchanged. */
+const PRODUCTS=[
+  {id:'ownbuild', name:'Own-Build IDC + GPU', sub:'build the DC, run GPUs — vertically integrated',
+   tog:{facility:true, colo:true, debt:true}, gpu:true,
+   ov:{}},
+  {id:'lease', name:'Lease IDC + GPU', sub:'rent colo space, run GPUs — asset-light',
+   tog:{facility:false, colo:false, debt:true}, gpu:true,
+   ov:{coloPerKWMo:200}},
+  {id:'gpuaas', name:'GPU-as-a-Service', sub:'pure GPU cloud on leased DC — no build',
+   tog:{facility:false, colo:false, debt:false}, gpu:true,
+   ov:{coloPerKWMo:200, utilSteady:0.75}},
+  {id:'datahall', name:'Data Hall / MW', sub:'build & lease MW capacity — PropCo, no GPUs',
+   tog:{facility:true, colo:true, debt:true}, gpu:false,
+   ov:{coloMW:10, coloRate:180}},
+  {id:'colo', name:'Colocation / Rack', sub:'build & lease racks to tenants — merchant colo',
+   tog:{facility:true, colo:true, debt:true}, gpu:false,
+   ov:{coloMW:8}},
+];
+let PROD='ownbuild';
+
+const F_REV=[
+  {k:'gpus',label:'GPUs per server',unit:'#',step:1,info:'GPUs per node. HGX/DGX B300 is 8. Sets GPU-count rounding and per-node power.'},
+  {k:'deployMonths',label:'Deployment period',unit:'months',step:1,tog:'phase',info:'Months to install all GPUs (staged capex). Capacity comes online gradually, not day one.'},
+  {k:'leadMonths',label:'Build lead time',unit:'months (capex→rev)',step:1,tog:'phase',info:'Commissioning gap between spending capex and earning revenue — money out, debt clock running, no income. The deepest part of the Year-1 cash hole.'},
+  {k:'lockYears',label:'Contract lock period',unit:'years',step:1,tog:'lock',info:'Years the rental price is contractually fixed. The single most important bankability lever — locked revenue is what makes the debt serviceable.'},
+  {k:'rentalDecline',label:'Market erosion / yr',unit:'%',step:1,pct:true,tog:'decline',info:'Annual decline in market GPU-hour price as newer silicon ships. Applies after the lock period expires. H100 fell ~40%/yr post-peak.'},
+  {k:'utilStart',label:'Utilization — start',unit:'%',step:1,pct:true,tog:'util',info:'Billed hours ÷ available hours in month 1. New clusters ramp from partial fill; 45% reflects early lease-up.'},
+  {k:'utilSteady',label:'Utilization — steady',unit:'%',step:1,pct:true,info:'Mature utilisation once ramped. 85% is strong for contracted capacity; hyperscalers assume 70-90%.'},
+  {k:'utilRamp',label:'Utilization ramp',unit:'months',step:1,tog:'util',info:'Months to climb from start to steady utilisation as customers onboard.'},
+  {k:'arDays',label:'Receivable days (AR)',unit:'days',step:5,tog:'wc',info:'Days between billing and cash collection. Working-capital drag funded by equity until it unwinds.'},
+  {k:'coloMW',label:'Colocation capacity',unit:'MW IT',step:0.5,tog:'colo',info:'Facility capacity leased to third-party colo tenants (own-build only). A stable rental layer beside the GPU business.'},
+  {k:'coloRate',label:'Colo rate (excl. power)',unit:'$/kW/mo',step:10,tog:'colo',info:'Rack + power-capacity rent to colo tenants, excl. metered power (tenants pay their own electricity). Market retail $150-215/kW/mo.'},
+  {k:'coloLeaseYears',label:'Colo lease term',unit:'years',step:1,tog:'colo',info:'Colo tenant lease length. 10yr+ is standard and lets the remaining lease be valued as a resale asset at exit.'},
+  {k:'coloEsc',label:'Colo rate escalation',unit:'% / yr',step:0.5,pct:true,tog:'colo',info:'Annual rent bump written into long colo leases. 2-3%/yr typical.'},
+];
+const F_COST=[
+  {k:'pue',label:'PUE',unit:'x',step:0.05,info:'Power Usage Effectiveness — total facility power ÷ IT power. Air-cooled ~1.4-1.5; liquid-cooled ~1.2-1.3. Multiplies the electricity bill.'},
+  {k:'transitMo',label:'Internet transit',unit:'$k / mo',step:5,scale:1e3,info:'Internet transit / IP bandwidth — monthly cost for customer data ingress/egress. Fixed opex once live.'},
+  {k:'facilityLife',label:'Facility useful life',unit:'yrs',step:1,tog:'facility',info:'Depreciation life of the building & M&E (own-build only). Industry blends 15-25yr; 18 sits between traditional (20) and AI-aggressive (15).'},
+  {k:'siteRentPerMW',label:'Ground rent (own-build)',unit:'$k/MW IT/yr',step:10,scale:1e3,tog:'facility',info:'Annual ground lease for the land under an owned facility (own-build only). Gulf industrial land is cheap — a minor cost line here.'},
+  {k:'warrantyPct',label:'Warranty & support',unit:'% capex/yr',step:0.5,pct:true,info:'OEM/vendor hardware support & spares, as % of server+network capex per year. 5% ≈ enterprise SLA; 3.5-4% self-maintenance.'},
+  {k:'otherPct',label:'Site staff & O&M',unit:'% capex/yr',step:0.5,pct:true,info:'On-site engineers, NOC, facility O&M, as % of total capex per year. 2.5% aligns with itemised staffing at comparable DCs.'},
+  {k:'gaAnnual',label:'Corporate G&A',unit:'$M / yr',step:0.25,scale:1e6,tog:'ga',info:'Corporate overhead — management, legal, finance, sales, HR. Fixed regardless of scale, so it dilutes as GPU count grows.'},
+  {k:'gaInfl',label:'G&A inflation',unit:'% / yr',step:0.5,pct:true,tog:'ga',info:'Annual growth in G&A, driven mainly by salary escalation.'},
+  {k:'residualPct',label:'Residual value (HW)',unit:'% at exit',step:1,pct:true,info:'Server resale value at exit, as % of purchase price. H100 held 35-50% at 3yr; 20% is a conservative floor for a 5yr-old B300.'},
+  {k:'tax',label:'Tax rate (on PBT)',unit:'%',step:1,pct:true,info:'Corporate tax on pre-tax profit. Saudi CIT is 20%; blended with Zakat considerations here.'},
+];
+const F_FIN=[
+  {k:'debtPct',label:'Debt % of CAPEX',unit:'%',step:5,pct:true,tog:'debt',info:'Share of total capex funded by debt vs equity. 60% = 6:4 leverage. Raises equity IRR but front-loads repayment pressure.'},
+  {k:'debtRate',label:'Debt interest rate',unit:'%',step:0.5,pct:true,tog:'debt',info:'All-in annual interest on the loan. Commercial project debt in KSA runs SAIBOR+2-3% ≈ 7-9%.'},
+  {k:'debtTenor',label:'Debt tenor',unit:'months',step:6,tog:'debt',info:'Months to fully repay principal. Short tenor crushes early DSCR; matching tenor to asset life is the fix.'},
+  {k:'feePct',label:'Debt arrangement fee',unit:'% of loan',step:0.25,pct:true,tog:'debt',info:'One-time debt arrangement / structuring fee, % of loan, expensed at close.'},
+  {k:'exitMult',label:'Exit EV/EBITDA',unit:'x',step:0.5,tog:'exit',info:'EV/EBITDA multiple paid by a buyer at exit (going-concern sale). DC sector trades 12-20x; 8x is conservative for GPU cash flows.'},
+  {k:'disc',label:'Hurdle / discount rate',unit:'%',step:0.5,pct:true},
+];
+
+/* ═══════════════ engine (validated) ═══════════════ */
+function irr(cf){
+  const npv=r=>cf.reduce((s,c,i)=>s+c/Math.pow(1+r,i),0);
+  let lo=-0.9999,hi=8;
+  if(npv(lo)*npv(hi)>0) return null;
+  for(let k=0;k<220;k++){const m=(lo+hi)/2,v=npv(m); if(Math.abs(v)<1e-4)return m; if(npv(lo)*v<0)hi=m; else lo=m;}
+  return (lo+hi)/2;
+}
+function compute(p,tog){
+  const H=730, N=Math.round(p.years*12), gpus=p.gpus;
+  const useGpu0=tog._gpu!==false;
+  // For PropCo-only products (Data Hall / Colo), the "build unit" is colo MW, not GPU servers.
+  const target=useGpu0?p.servers:Math.max(1,Math.round(p.coloMW));
+  const useDebt=tog.debt, useDecline=tog.decline, useUtil=tog.util, usePhase=tog.phase;
+  const deployM=usePhase?Math.max(1,p.deployMonths):1;
+  const decline=useDecline?p.rentalDecline:0;
+  const uStart=useUtil?p.utilStart:p.utilSteady, uRamp=useUtil?Math.max(1,p.utilRamp):1;
+  const debtPct=useDebt?p.debtPct:0;
+  const lockM=tog.lock?Math.max(0,Math.round((p.lockYears||0)*12)):0;
+  const useFac=tog.facility;
+  const useGA=tog.ga;
+  const useWC=tog.wc, useExit=tog.exit;
+  const useColo=tog.colo&&useFac;
+  const useGpu=tog._gpu!==false;   // false for Data Hall / Colo products (PropCo only)
+  const gpuMW=useGpu?target*p.powerKW/1000:0;
+  const coloMW=useGpu?(useColo?p.coloMW:0):p.coloMW;  // GPU-off: colo is the whole facility
+  const mwIT=gpuMW+coloMW;
+  const facTotal=useFac?mwIT*p.facilityPerMW:0;
+  const facPerServer=(useFac&&useGpu)?facTotal*(gpuMW/Math.max(mwIT,1e-9))/Math.max(1,target):0;
+
+  const lead=usePhase?Math.max(0,Math.round(p.leadMonths||0)):0;
+
+  const A=()=>new Array(N+1).fill(0);
+  const build=A(),online=A(),capexS=A(),capexN=A(),capexF=A(),capex=A(),cumS=A(),cumN=A(),cumF=A(),util=A(),price=A(),bill=A(),rev=A(),revG=A(),revGm=A(),revC=A(),
+        elec=A(),warr=A(),oth=A(),othF=A(),intR=A(),ga=A(),rentx=A(),trans=A(),ar=A(),dwc=A(),feeA=A(),cashopex=A(),deprS=A(),deprN=A(),deprF=A(),depr=A(),ebitda=A(),ebit=A(),
+        dDraw=A(),dRepay=A(),dInt=A(),dBal=A(),pbt=A(),tax=A(),ni=A(),cfo=A(),capexCf=A(),projFcf=A(),eqFcf=A(),cumEq=A();
+  const totalCapex=(useGpu?target*p.serverPrice*(1+p.netPct):0)+facTotal;
+  const netCapex=useGpu?target*p.serverPrice*p.netPct:0;
+  const totalDebt=totalCapex*debtPct;
+  const princPerMo=totalDebt/Math.max(1,p.debtTenor);
+
+  for(let m=1;m<=N;m++){
+    build[m]=Math.min(target, target*Math.min(m,deployM)/deployM);
+    online[m]=(m-lead>=1)?build[m-lead]:0;
+    const dBuild=build[m]-build[m-1];
+    capexS[m]=useGpu?dBuild*p.serverPrice:0;
+    capexN[m]=useGpu?dBuild*p.serverPrice*p.netPct:0;
+    capexF[m]=(build[m]-build[m-1])/Math.max(target,1)*facTotal;
+    capex[m]=capexS[m]+capexN[m]+capexF[m];
+    cumS[m]=cumS[m-1]+capexS[m];
+    cumN[m]=cumN[m-1]+capexN[m];
+    cumF[m]=cumF[m-1]+capexF[m];
+    const mrev=Math.max(0,m-lead);
+    util[m]=uStart+(p.utilSteady-uStart)*Math.min(Math.max(mrev,1),uRamp)/uRamp;
+    price[m]=(m<=lockM)?p.rental:p.rental*Math.pow(1-decline,(m-1)/12);
+    bill[m]=useGpu?online[m]*gpus*H*util[m]:0;
+    revG[m]=bill[m]*price[m];
+    revGm[m]=bill[m]*p.rental*Math.pow(1-decline,(m-1)/12);
+    revC[m]=useColo?coloMW*1000*p.coloRate*(online[m]/target)*Math.pow(1+p.coloEsc,Math.floor((m-1)/12)):0;
+    rev[m]=revG[m]+revC[m];
+    elec[m]=online[m]*p.powerKW*p.pue*H*p.elec;
+    warr[m]=(cumS[m]+cumN[m])*p.warrantyPct/12;
+    oth[m]=(cumS[m]+cumN[m]+cumF[m])*p.otherPct/12;
+    othF[m]=cumF[m]*p.otherPct/12;
+    intR[m]=useFac?gpuMW*1000*p.coloRate*(online[m]/target)*Math.pow(1+p.coloEsc,Math.floor((m-1)/12)):0;
+    ga[m]=useGA?(p.gaAnnual/12)*Math.pow(1+p.gaInfl,Math.floor((m-1)/12)):0;
+    rentx[m]=useFac?(mwIT*p.siteRentPerMW/12):(online[m]*p.powerKW*p.coloPerKWMo);
+    trans[m]=online[m]>0?p.transitMo:0;
+    cashopex[m]=elec[m]+warr[m]+oth[m]+ga[m]+rentx[m]+trans[m];
+    ar[m]=useWC?rev[m]*p.arDays/30.4:0;
+    dwc[m]=ar[m]-ar[m-1];
+    deprS[m]=cumS[m]*(1-p.residualPct)/(p.years*12);
+    deprN[m]=cumN[m]/(p.years*12);
+    deprF[m]=useFac?cumF[m]/(p.facilityLife*12):0;
+    depr[m]=deprS[m]+deprN[m]+deprF[m];
+    ebitda[m]=rev[m]-cashopex[m];
+    ebit[m]=ebitda[m]-depr[m];
+    dDraw[m]=capex[m]*debtPct;
+    const repaying = m>deployM && m<=deployM+p.debtTenor;
+    dRepay[m]=repaying?princPerMo:0;
+    const openBal=dBal[m-1];
+    dInt[m]=openBal*p.debtRate/12;
+    dBal[m]=openBal+dDraw[m]-dRepay[m];
+    if(dBal[m]<1e-6)dBal[m]=0;
+    feeA[m]=(m===1&&useDebt)?totalDebt*p.feePct:0;
+    pbt[m]=ebit[m]-dInt[m]-feeA[m];
+    tax[m]=Math.max(0,pbt[m]*p.tax);
+    ni[m]=pbt[m]-tax[m];
+    cfo[m]=ni[m]+depr[m]-dwc[m];
+    capexCf[m]=-capex[m];
+    projFcf[m]=ebitda[m]-Math.max(0,ebit[m]*p.tax)+capexCf[m]-dwc[m];
+    eqFcf[m]=cfo[m]+capexCf[m]+dDraw[m]-dRepay[m];
+    cumEq[m]=cumEq[m-1]+eqFcf[m];
+  }
+  const servResidual=target*p.serverPrice*p.residualPct;
+  const facNBV=useFac?facTotal*Math.max(0,(p.facilityLife-p.years)/p.facilityLife):0;
+  let facExit=facNBV, coloLeaseVal=0;
+  if(useColo&&useFac&&mwIT>0){
+    const gpuShareNBV=facNBV*(gpuMW/mwIT), coloShareNBV=facNBV*(coloMW/mwIT);
+    const coloNOI=(()=>{let s=0;for(let m=Math.max(1,N-11);m<=N;m++)s+=revC[m];return s;})()
+      -coloMW*(p.siteRentPerMW+p.facilityPerMW*p.otherPct);
+    const remLease=Math.max(0,(p.coloLeaseYears||0)-p.years);
+    const af=remLease>0?(1-Math.pow(1+p.disc,-remLease))/p.disc:0;
+    coloLeaseVal=Math.max(0,coloNOI)*af;
+    facExit=gpuShareNBV+Math.max(coloShareNBV,coloLeaseVal);
+  }
+  const residual=servResidual+facExit;
+  const debtEnd=dBal[N];
+  const ltmEb=(()=>{let s=0;for(let m=Math.max(1,N-11);m<=N;m++)s+=ebitda[m];return s;})();
+  const ltmEbMkt=(()=>{let s=0;for(let m=Math.max(1,N-11);m<=N;m++)s+=(revGm[m]+revC[m]-cashopex[m]);return s;})();
+  const useExitCur=tog.exitcur;
+  const termProj=useExit?p.exitMult*Math.max(0,useExitCur?ltmEb:ltmEbMkt):(residual+(useWC?ar[N]:0));
+  const termEq=termProj-debtEnd;
+  const projSeries=projFcf.slice(1); projSeries[N-1]+=termProj;
+  const eqSeries=eqFcf.slice(1);   eqSeries[N-1]+=termEq;
+
+  const pIRR=(()=>{const x=irr(projSeries); return x==null?null:Math.pow(1+x,12)-1;})();
+  const eIRR=(()=>{const x=irr(eqSeries); return x==null?null:Math.pow(1+x,12)-1;})();
+  const rm=p.disc/12;
+  const projNPV=projSeries.reduce((s,c,i)=>s+c/Math.pow(1+rm,i+1),0);
+  const eqNPV=eqSeries.reduce((s,c,i)=>s+c/Math.pow(1+rm,i+1),0);
+
+  let payM=null,cum=0; for(let m=1;m<=N;m++){cum+=eqFcf[m]; if(payM==null&&cum>=0)payM=m;}
+  let inflow=0,outflow=0; eqSeries.forEach(c=>{if(c>0)inflow+=c; else outflow-=c;});
+  const moic=outflow>0?inflow/outflow:null;
+
+  const yrs=[];
+  for(let y=1;y<=p.years;y++){
+    const a=(y-1)*12+1,b=y*12; const sum=arr=>{let s=0;for(let m=a;m<=b;m++)s+=arr[m];return s;};
+    const eb=sum(ebitda),intr=sum(dInt),prin=sum(dRepay),cashtax=sum(tax),dw=sum(dwc),fe=sum(feeA),rn=sum(rentx);
+    const cfads=eb-cashtax-dw, ds=intr+prin;
+    yrs.push({y,rev:sum(rev),revG:sum(revG),revC:sum(revC),othF:sum(othF),intR:sum(intR),trans:sum(trans),elec:sum(elec),warr:sum(warr),oth:sum(oth),ga:sum(ga),rent:rn,dwc:dw,fee:fe,ebitda:eb,
+      depr:sum(depr),ebit:sum(ebit),interest:intr,tax:cashtax,ni:sum(ni),
+      capex:-sum(capexCf),draw:sum(dDraw),repay:prin,fcfe:sum(eqFcf),
+      debtEnd:dBal[b],dscr:ds>1?cfads/ds:null,icr:intr>1?eb/intr:null,
+      nde:eb!==0?dBal[b]/eb:null, price:price[b], util:util[b], online:online[b]});
+  }
+  const dscrVals=yrs.map(y=>y.dscr).filter(v=>v!=null);
+  const minDSCR=dscrVals.length?Math.min(...dscrVals):null;
+  const icrVals=yrs.map(y=>y.icr).filter(v=>v!=null);
+  const minICR=icrVals.length?Math.min(...icrVals):null;
+  const peakDebt=Math.max(...dBal.slice(1));
+
+  const ssUtil=p.utilSteady, ssBill=gpus*H*ssUtil;
+  const gaPerServerMo=useGA?(p.gaAnnual/12)/Math.max(1,target):0;
+  const facGpuPerServer=useFac?(p.powerKW/1000)*p.facilityPerMW:0;
+  const rentPerServerMo=useFac?(p.powerKW/1000*p.siteRentPerMW/12):(p.powerKW*p.coloPerKWMo);
+  const cb={depr:p.serverPrice*(1-p.residualPct)/(p.years*12)/ssBill,
+            net:(p.serverPrice*p.netPct/(p.years*12)+p.transitMo/Math.max(1,target))/ssBill,
+            facility:useFac?(facGpuPerServer/(p.facilityLife*12))/ssBill:0,
+            rent:rentPerServerMo/ssBill,
+            elec:p.powerKW*p.pue*H*p.elec/ssBill,
+            warr:p.serverPrice*(1+p.netPct)*p.warrantyPct/12/ssBill,
+            oth:(p.serverPrice*(1+p.netPct)+facGpuPerServer)*p.otherPct/12/ssBill,
+            ga:gaPerServerMo/ssBill};
+  const costBasis=cb.depr+cb.net+cb.facility+cb.rent+cb.elec+cb.warr+cb.oth+cb.ga;
+  const margin=p.rental-costBasis, marginPct=p.rental>0?margin/p.rental:0;
+  const avgEbMargin=(()=>{let r=0,e=0;for(let m=1;m<=N;m++){r+=rev[m];e+=ebitda[m];}return r>0?e/r:0;})();
+
+  const mo=[]; for(let m=1;m<=N;m++)mo.push({m,rev:rev[m],ebitda:ebitda[m],price:price[m],cumEq:cumEq[m],debt:dBal[m]});
+  const totRev=yrs.reduce((s,y)=>s+y.rev,0), totNI=yrs.reduce((s,y)=>s+y.ni,0), totEb=yrs.reduce((s,y)=>s+y.ebitda,0);
+
+  const peakEquity=Math.max(0,-Math.min(0,...cumEq.slice(1)));
+
+  return {N,useDebt,useFac,useGA,useWC,useExit,useExitCur,useColo,gpuMW,coloMW,totalCapex,servCapex:target*p.serverPrice,netCapex,facTotal,mwIT,facExit,peakDebt,debtEnd,residual,servResidual,totalDebt,termProj,peakEquity,arEnd:ar[N],
+    pIRR,eIRR,projNPV,eqNPV,moic,minDSCR,minICR,totRev,totNI,totEb,
+    paybackYears:payM==null?null:payM/12,
+    cb,costBasis,margin,marginPct,avgEbMargin,rentMo:p.rental*H*p.utilSteady,
+    yrs,mo};
+}
+
+/* ═══════════════ formatters ═══════════════ */
+const money=v=>{if(v==null||isNaN(v))return'—';const a=Math.abs(v),s=v<0?'-':'';
+  if(a>=1e6)return s+'$'+(a/1e6).toFixed(1)+'M'; if(a>=1e3)return s+'$'+(a/1e3).toFixed(0)+'k'; return s+'$'+a.toFixed(0);};
+const dol=v=>(v<0?'-$':'$')+Math.abs(v).toFixed(2);
+const pctf=v=>(v==null||isNaN(v))?'n/a':(v*100).toFixed(1)+'%';
+const irrf=v=>v==null?'n/a':(v*100).toFixed(0)+'%';
+const yrf=v=>v==null?'—':v.toFixed(2)+' yr';
+
+/* ═══════════════ charts (SVG) ═══════════════ */
+const CC={depr:'#c8ff00',net:'#9fd41f',warr:'#5f7d00',facility:'#7dd3fc',rent:'#4a90b8',elec:'#2e5f7d',oth:'#8a8a8a',ga:'#c084fc',profit:'#c8ff00',loss:'#ff5c6c'};
+function dollarBar(o,price){
+  const W=640,H=70,pad=8,barH=30,y=16;
+  const segs=[['depr',o.cb.depr],['net',o.cb.net||0],['warr',o.cb.warr],['facility',o.cb.facility||0],['rent',o.cb.rent||0],['elec',o.cb.elec],['oth',o.cb.oth],['ga',o.cb.ga||0]];
+  const scaleMax=Math.max(price,o.costBasis)*1.03, sc=x=>(x/scaleMax)*(W-2*pad);
+  let x=pad,r='';
+  segs.forEach(([k,v])=>{const w=sc(v); if(w>0.3)r+=`<rect x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="${barH}" fill="${CC[k]}"/>`; x+=w;});
+  const profit=price-o.costBasis;
+  if(profit>=0)r+=`<rect x="${x.toFixed(1)}" y="${y}" width="${sc(profit).toFixed(1)}" height="${barH}" fill="${CC.profit}"/>`;
+  else r+=`<rect x="${(sc(o.costBasis)+pad-sc(-profit)).toFixed(1)}" y="${y}" width="${sc(-profit).toFixed(1)}" height="${barH}" fill="${CC.loss}"/>`;
+  const px=sc(price)+pad;
+  r+=`<line x1="${px.toFixed(1)}" y1="${y-8}" x2="${px.toFixed(1)}" y2="${y+barH+8}" stroke="#e9edf2" stroke-width="1.6"/>
+      <text x="${px.toFixed(1)}" y="${y+barH+20}" fill="#e9edf2" font-size="10.5" font-family="ui-monospace,monospace" text-anchor="middle">price ${dol(price)}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H+6}" width="100%" height="${H+6}">${r}</svg>`;
+}
+function capexBar(o){
+  const W=640,H=46,pad=8,barH=18,y=8;
+  if(o.totalCapex<=0)return'';
+  const sc=x=>(x/o.totalCapex)*(W-2*pad);
+  const sw=sc(o.servCapex), nw=sc(o.netCapex||0), fw=sc(o.facTotal);
+  let x=pad, r=`<rect x="${x}" y="${y}" width="${sw.toFixed(1)}" height="${barH}" fill="${CC.depr}" rx="2"/>`; x+=sw;
+  if(nw>0.3){r+=`<rect x="${x.toFixed(1)}" y="${y}" width="${nw.toFixed(1)}" height="${barH}" fill="${CC.net}" rx="2"/>`; x+=nw;}
+  if(fw>0.3)r+=`<rect x="${x.toFixed(1)}" y="${y}" width="${fw.toFixed(1)}" height="${barH}" fill="${CC.facility}" rx="2"/>`;
+  r+=`<text x="${pad}" y="${y+barH+14}" fill="#94a0ae" font-size="10" font-family="ui-monospace,monospace">servers ${money(o.servCapex)}${o.netCapex>0?` · network ${money(o.netCapex)}`:''}${o.useFac?` · facility ${money(o.facTotal)} (${o.mwIT.toFixed(2)} MW IT)`:''}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}">${r}</svg>`;
+}
+function revChart(mo){
+  const W=640,H=200,pad=36;
+  const N=mo.length;
+  const rmax=Math.max(...mo.map(d=>d.rev),1), pmax=Math.max(...mo.map(d=>d.price),0.01);
+  const X=m=>pad+((m-1)/((N-1)||1))*(W-pad-44);
+  const Yr=v=>H-pad-(v/rmax)*(H-2*pad);
+  const Yp=v=>H-pad-(v/pmax)*(H-2*pad);
+  const line=(key,Y,st,wd)=>{let d='M'+X(mo[0].m).toFixed(1)+' '+Y(mo[0][key]).toFixed(1);
+    for(let i=1;i<mo.length;i++)d+=' L'+X(mo[i].m).toFixed(1)+' '+Y(mo[i][key]).toFixed(1);
+    return `<path d="${d}" fill="none" stroke="${st}" stroke-width="${wd||2}"/>`;};
+  let area='M'+X(mo[0].m).toFixed(1)+' '+Yr(mo[0].ebitda).toFixed(1);
+  for(let i=1;i<mo.length;i++)area+=' L'+X(mo[i].m).toFixed(1)+' '+Yr(mo[i].ebitda).toFixed(1);
+  area+=` L${X(mo[N-1].m).toFixed(1)} ${H-pad} L${X(mo[0].m).toFixed(1)} ${H-pad} Z`;
+  let ticks=''; const yrN=Math.round(N/12);
+  for(let y=0;y<=yrN;y++){const m=y*12<1?1:y*12; if(m<=N)ticks+=`<text x="${X(m).toFixed(1)}" y="${H-13}" fill="#5c6875" font-size="10" font-family="ui-monospace,monospace" text-anchor="middle">Y${y}</text>`;}
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}">
+    <path d="${area}" fill="rgba(125,211,252,.10)" stroke="none"/>
+    ${line('rev',Yr,'#c8ff00')}
+    ${line('ebitda',Yr,'#7dd3fc')}
+    ${line('price',Yp,'#ff5c6c',1.6)}
+    ${ticks}
+    <text x="${W-4}" y="14" fill="#ff5c6c" font-size="10" font-family="ui-monospace,monospace" text-anchor="end">price →</text>
+  </svg>`;
+}
+function paybackChart(mo,years){
+  const W=640,H=190,pad=36;
+  const arr=[{m:0,cum:0}].concat(mo.map(d=>({m:d.m,cum:d.cumEq})));
+  const xmax=Math.max(...arr.map(p=>p.m)), ymin=Math.min(...arr.map(p=>p.cum),0), ymax=Math.max(...arr.map(p=>p.cum),0);
+  const X=m=>pad+(m/xmax)*(W-pad-12), Y=v=>H-pad-((v-ymin)/((ymax-ymin)||1))*(H-2*pad);
+  let d='M'+arr.map(p=>X(p.m).toFixed(1)+' '+Y(p.cum).toFixed(1)).join(' L ');
+  const cross=arr.find(p=>p.cum>=0&&p.m>0);
+  let dot=cross?`<circle cx="${X(cross.m).toFixed(1)}" cy="${Y(0).toFixed(1)}" r="4" fill="#c8ff00"/><text x="${X(cross.m).toFixed(1)}" y="${(Y(0)-10).toFixed(1)}" fill="#c8ff00" font-size="10.5" font-family="ui-monospace,monospace" text-anchor="middle">${(cross.m/12).toFixed(1)}y</text>`:'';
+  let ticks=''; for(let y=0;y<=years;y++){const m=y*12;if(m<=xmax)ticks+=`<text x="${X(m).toFixed(1)}" y="${H-13}" fill="#5c6875" font-size="10" font-family="ui-monospace,monospace" text-anchor="middle">Y${y}</text>`;}
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}">
+    <line x1="${pad}" y1="${Y(0).toFixed(1)}" x2="${W-12}" y2="${Y(0).toFixed(1)}" stroke="#262d37"/>
+    <path d="${d}" fill="none" stroke="#c8ff00" stroke-width="2.2"/>${dot}${ticks}
+    <text x="${pad-6}" y="${(Y(ymax)+4).toFixed(1)}" fill="#5c6875" font-size="10" font-family="ui-monospace,monospace" text-anchor="end">${money(ymax)}</text>
+    <text x="${pad-6}" y="${(Y(ymin)+4).toFixed(1)}" fill="#5c6875" font-size="10" font-family="ui-monospace,monospace" text-anchor="end">${money(ymin)}</text>
+  </svg>`;
+}
+function dscrChart(yrs){
+  const W=640,H=180,pad=32,n=yrs.length;
+  const vals=yrs.map(y=>y.dscr||0), max=Math.max(...vals,1.6);
+  const gap=(W-pad-12)/n, bw=gap*0.5;
+  const Y=v=>H-pad-(v/max)*(H-2*pad);
+  let bars=''; yrs.forEach((y,i)=>{const v=y.dscr; const x=pad+i*gap+gap*0.25;
+    const col=v==null?'#2e3742':v<1.2?'#ff5c6c':'#c8ff00';
+    const h=v==null?0:(v/max)*(H-2*pad);
+    bars+=`<rect x="${x.toFixed(1)}" y="${(H-pad-h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${col}" rx="3"/>
+      <text x="${(x+bw/2).toFixed(1)}" y="${(H-pad-h-6).toFixed(1)}" fill="#e9edf2" font-size="10.5" font-family="ui-monospace,monospace" text-anchor="middle">${v==null?'n/a':v.toFixed(2)+'x'}</text>
+      <text x="${(x+bw/2).toFixed(1)}" y="${H-12}" fill="#5c6875" font-size="10" font-family="ui-monospace,monospace" text-anchor="middle">Y${y.y}</text>`;});
+  const cov=Y(1.2);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}">
+    <line x1="${pad}" y1="${cov.toFixed(1)}" x2="${W-12}" y2="${cov.toFixed(1)}" stroke="#ff5c6c" stroke-dasharray="4 3" opacity=".7"/>
+    <text x="${W-10}" y="${(cov-5).toFixed(1)}" fill="#ff5c6c" font-size="9.5" font-family="ui-monospace,monospace" text-anchor="end">1.20x</text>${bars}</svg>`;
+}
+
+/* ═══════════════ sensitivity & scenarios ═══════════════ */
+function heatColor(v,lo,hi){
+  if(v==null)return '#2e3742';
+  const t=Math.max(0,Math.min(1,(v-lo)/((hi-lo)||1)));
+  const r=Math.round(242+(88-242)*t), g=Math.round(112+(214-112)*t), b=Math.round(138+(141-138)*t);
+  return `rgb(${r},${g},${b})`;
+}
+function sensitivity(){
+  const rentMults=[0.6,0.8,1.0,1.2,1.4], utils=[0.6,0.7,0.8,0.9,0.95];
+  const levered=T.debt;
+  const grid=rentMults.map(rm=>utils.map(u=>{
+    const o=compute({...S, rental:S.rental*rm, utilSteady:u}, T);
+    return levered?o.eIRR:o.pIRR;
+  }));
+  const flat=grid.flat().filter(v=>v!=null);
+  const lo=Math.min(...flat), hi=Math.max(...flat);
+  let html=`<table class="heat"><thead><tr><th>${levered?'Equity':'Project'} IRR</th>`+
+    utils.map(u=>`<th style="text-align:center">${(u*100).toFixed(0)}%</th>`).join('')+`</tr></thead><tbody>`;
+  rentMults.forEach((rm,i)=>{
+    html+=`<tr><td class="num" style="color:var(--muted)">$${(S.rental*rm).toFixed(2)}</td>`+
+      grid[i].map(v=>`<td style="background:${heatColor(v,lo,hi)};color:#0f1216">${v==null?'n/a':(v*100).toFixed(0)+'%'}</td>`).join('')+`</tr>`;
+  });
+  return html+`</tbody></table><div class="foot">rows: rental $/GPU-hr · columns: steady utilization · each cell reruns the full engine</div>`;
+}
+function scenarios(){
+  const defs={
+    Bear:{rentalMult:0.8, utilSteady:Math.max(0.4,S.utilSteady-0.15), declineAdd:0.10, elecMult:1.2, residAdd:-0.10},
+    Base:{rentalMult:1.0, utilSteady:S.utilSteady, declineAdd:0, elecMult:1.0, residAdd:0},
+    Bull:{rentalMult:1.2, utilSteady:Math.min(0.95,S.utilSteady+0.08), declineAdd:-0.08, elecMult:0.9, residAdd:0.15},
+  };
+  const res={};
+  for(const k in defs){const d=defs[k];
+    res[k]=compute({...S, rental:S.rental*d.rentalMult, utilSteady:d.utilSteady,
+      rentalDecline:Math.max(0,S.rentalDecline+d.declineAdd), elec:S.elec*d.elecMult,
+      residualPct:Math.max(0,Math.min(0.5,S.residualPct+d.residAdd))}, T);}
+  const rows=[
+    ['Project IRR',k=>irrf(res[k].pIRR)],
+    [T.debt?'Equity IRR':'Equity IRR (debt off)',k=>T.debt?irrf(res[k].eIRR):'—'],
+    ['Equity MOIC',k=>res[k].moic==null?'n/a':res[k].moic.toFixed(2)+'x'],
+    ['Payback',k=>yrf(res[k].paybackYears)],
+    ['Avg EBITDA margin',k=>pctf(res[k].avgEbMargin)],
+    ['Min DSCR',k=>res[k].minDSCR==null?'n/a':res[k].minDSCR.toFixed(2)+'x'],
+    ['Project NPV @ hurdle',k=>money(res[k].projNPV)],
+  ];
+  const cols=['Bear','Base','Bull'], colcol={Bear:'var(--fail)',Base:'var(--power)',Bull:'var(--pass)'};
+  let html=`<table><thead><tr><th>Metric</th>`+
+    cols.map(c=>`<th style="color:${colcol[c]}">${c}</th>`).join('')+`</tr></thead><tbody>`;
+  rows.forEach(([lb,fn])=>{html+=`<tr><td>${lb}</td>`+cols.map(c=>`<td>${fn(c)}</td>`).join('')+`</tr>`;});
+  return html+`</tbody></table><div class="foot">Bear: −20% price, −15pt util, +10pt erosion, +20% power, −10pt residual · Bull: +20% price, +8pt util, −8pt erosion, −10% power, +15pt residual (H100-style scarcity playbook)</div>`;
+}
+
+/* ═══════════════ verdict ═══════════════ */
+function verdict(o){
+  const unitPass=o.margin>0;
+  const debtPass=!T.debt || o.minDSCR==null || o.minDSCR>=1.2;
+  const retIRR=T.debt?o.eIRR:o.pIRR;
+  const retPass=retIRR!=null && retIRR>=S.disc;
+  const fails=(unitPass?0:1)+(debtPass?0:1)+(retPass?0:1);
+  const word=fails===0?['BANKABLE','var(--pass)','all three tests pass']:
+              fails===1?['MARGINAL','var(--power)','one test failing']:
+                        ['UNDERWATER','var(--fail)','two or more tests failing'];
+  const chip=(pass,label,val,ctx)=>`<div class="test">
+    <div class="tl">${label}</div>
+    <div class="tv" style="color:${pass?'var(--pass)':'var(--fail)'}">${val}</div>
+    <div class="tc">${ctx}</div></div>`;
+  return `<div class="verdict">
+    <div class="word"><div class="w" style="color:${word[1]}">${word[0]}</div><div class="sub">${word[2]}</div></div>
+    <div class="tests">
+      ${chip(unitPass,'Unit margin',dol(o.margin)+'/hr',`price ${dol(S.rental)} vs cost ${dol(o.costBasis)}`)}
+      ${chip(debtPass,'Debt cover',T.debt?(o.minDSCR==null?'n/a':o.minDSCR.toFixed(2)+'x'):'no debt',T.debt?'min DSCR vs 1.20x covenant':'all-equity structure')}
+      ${chip(retPass,'Return vs hurdle',irrf(retIRR),`${T.debt?'equity':'project'} IRR vs ${(S.disc*100).toFixed(0)}% hurdle`)}
+    </div></div>`;
+}
+
+/* ═══════════════ render ═══════════════ */
+function render(){
+  const o=compute(S,T);
+  const kpi=(l,v,s,c)=>`<div class="kpi"><div class="l">${l}</div><div class="v" style="color:${c||'var(--ink)'}">${v}</div>${s?`<div class="s">${s}</div>`:''}</div>`;
+
+  document.getElementById('tape').innerHTML=
+    `<b class="num">${(S.servers*S.gpus).toLocaleString()}</b> GPUs @ <b class="num cy">${money(S.serverPrice)}</b>/node · power <b class="num am">$${S.elec.toFixed(3)}/kWh</b> · renting <b class="num">$${S.rental.toFixed(2)}/GPU-hr</b>${(T.lock&&S.lockYears>0)?` <span style="color:var(--pass)">locked ${S.lockYears}yr</span>${T.decline?` then spot (−${(S.rentalDecline*100).toFixed(0)}%/yr)`:''}`:(T.decline?` <span>spot, eroding ${(S.rentalDecline*100).toFixed(0)}%/yr</span>`:'')} · <b class="num">${S.years}-yr</b> hold${(T.colo&&T.facility)?` · colo <b class="num am">${S.coloMW}MW @ $${S.coloRate}/kW</b>`:''}${T.debt?` · <b class="num">${(S.debtPct*100).toFixed(0)}%</b> debt`:' · all-equity'}`;
+
+  document.getElementById('out').innerHTML=`
+  ${verdict(o)}
+
+  ${(()=>{
+    const oF=compute(S,{...T,exit:false});
+    const oM=compute(S,{...T,exit:true,exitcur:false});
+    const oC=compute(S,{...T,exit:true,exitcur:true});
+    const act=(on)=>on?`background:rgba(125,211,252,.07);`:'';
+    const a1=!T.exit, a2=T.exit&&!T.exitcur, a3=T.exit&&T.exitcur;
+    const cell=(on,label,irrv,sub,last)=>`<div style="flex:1;padding:9px 16px;${last?'':'border-right:1px solid var(--line);'}${act(on)}">
+        <span style="color:${on?'var(--power)':'var(--dim)'};font-size:9.5px;letter-spacing:.12em;text-transform:uppercase">${label}${on?' · active':''}</span><br>
+        <span class="num" style="font-weight:700;${on?'color:var(--power)':''}">Equity IRR ${irrf(irrv)}</span> <span style="color:var(--muted)">· ${sub}</span></div>`;
+    return `<div style="display:flex;gap:0;border:1px solid var(--line);border-radius:3px;overflow:hidden;margin:-6px 0 14px;background:var(--surface);font-size:12px">
+      ${cell(a1,'Floor — liquidation',oF.eIRR,'proceeds '+money(oF.termProj))}
+      ${cell(a2,'Re-contract at market',oM.eIRR,S.exitMult+'x EBITDA repriced to spot · EV '+money(oM.termProj))}
+      ${cell(a3,'Re-contract at current price',oC.eIRR,S.exitMult+'x locked-rate EBITDA · EV '+money(oC.termProj),true)}
+    </div>`;})()}
+
+  <div class="grid">
+    ${kpi('Net profit — '+S.years+' yr',money(o.totNI),'cumulative, after tax & interest',o.totNI>=0?'var(--pass)':'var(--fail)')}
+    ${kpi('Net margin',o.totRev>0?(o.totNI/o.totRev*100).toFixed(1)+'%':'—','net profit / revenue over hold',o.totNI>=0?'var(--pass)':'var(--fail)')}
+    ${kpi('Project IRR',irrf(o.pIRR),'unlevered')}
+    ${kpi('Equity IRR',T.debt?irrf(o.eIRR):'—',T.debt?'levered':'debt off',T.debt?'var(--equity)':'var(--dim)')}
+    ${kpi('Equity MOIC',T.debt&&o.moic!=null?o.moic.toFixed(2)+'x':'—',null,T.debt?'var(--equity)':'var(--dim)')}
+    ${kpi('Payback',yrf(o.paybackYears),o.paybackYears&&o.paybackYears<=S.years?'within hold':'beyond hold')}
+    ${kpi('Project NPV',money(o.projNPV),'@ '+(S.disc*100).toFixed(0)+'% hurdle',o.projNPV>=0?'var(--pass)':'var(--fail)')}
+    ${kpi('Avg EBITDA margin',pctf(o.avgEbMargin),'over hold')}
+  </div>
+  <div class="grid">
+    ${kpi('Total CAPEX',money(o.totalCapex),o.useFac?`servers + network + facility`:'servers + network')}
+    ${kpi('Facility CAPEX',o.useFac?money(o.facTotal):'$0',o.useFac?`${o.mwIT.toFixed(2)} MW IT${o.useColo?` (GPU ${o.gpuMW.toFixed(2)} + colo ${o.coloMW.toFixed(1)})`:''} · exit ${money(o.facExit)}`:'facility off',o.useFac?'var(--power)':'var(--dim)')}
+    ${o.useColo?kpi('Colo revenue / yr',money(o.yrs[Math.min(1,o.yrs.length-1)].revC),(o.totRev>0?(o.yrs.reduce((s,y)=>s+y.revC,0)/o.totRev*100).toFixed(0)+'% of total revenue':''),'var(--power)'):''}
+    ${kpi('Debt',T.debt?money(o.totalDebt):'$0',T.debt?(S.debtPct*100).toFixed(0)+'% of capex · '+S.debtTenor+'mo':'all equity')}
+    ${kpi('Min DSCR',T.debt?(o.minDSCR==null?'n/a':o.minDSCR.toFixed(2)+'x'):'—',T.debt?('vs 1.20x · min ICR '+(o.minICR==null?'n/a':o.minICR.toFixed(1)+'x')):'debt off',!T.debt?'var(--dim)':(o.minDSCR!=null&&o.minDSCR<1.2)?'var(--fail)':'var(--pass)')}
+    ${kpi('Peak equity need',money(o.peakEquity),'max cash drawdown, funded by equity')}
+    ${kpi('Exit value',money(o.termProj),o.useExit?(S.exitMult+'x LTM EBITDA · '+(o.useExitCur?'current-price':'market re-contract')):'liquidation: residual'+(o.useWC?' + AR':''),o.useExit?'var(--power)':'var(--dim)')}
+    ${kpi('Cost basis',dol(o.costBasis),'per GPU-hr, steady state')}
+    ${kpi('Rental / GPU / mo',money(o.rentMo),'start · '+(S.utilSteady*100).toFixed(0)+'% util')}
+  </div>
+
+  <div class="card">
+    <div class="h">Where each rental dollar goes — per GPU-hour</div>
+    ${dollarBar(o,S.rental)}
+    <div class="legend">
+      <span><i style="background:${CC.depr}"></i>Server depreciation <span class="num">${dol(o.cb.depr)}</span></span>
+      <span><i style="background:${CC.net}"></i>Network <span class="num">${dol(o.cb.net)}</span></span>
+      <span><i style="background:${CC.warr}"></i>Warranty <span class="num">${dol(o.cb.warr)}</span></span>
+      ${o.useFac?`<span><i style="background:${CC.facility}"></i>Facility <span class="num">${dol(o.cb.facility)}</span></span>`:''}
+      <span><i style="background:${CC.rent}"></i>${o.useFac?'Ground rent':'Colo fee'} <span class="num">${dol(o.cb.rent)}</span></span>
+      <span><i style="background:${CC.elec}"></i>Electricity <span class="num">${dol(o.cb.elec)}</span></span>
+      <span><i style="background:${CC.oth}"></i>Site staff <span class="num">${dol(o.cb.oth)}</span></span>
+      ${o.useGA?`<span><i style="background:${CC.ga}"></i>Corporate G&amp;A <span class="num">${dol(o.cb.ga)}</span></span>`:''}
+      <span><i style="background:${o.margin>=0?CC.profit:CC.loss}"></i>${o.margin>=0?'Profit':'Loss'} <span class="num">${dol(Math.abs(o.margin))}</span></span>
+    </div>
+    <div class="foot">cyan family = compute layer (servers) · amber family = power &amp; facility layer</div>
+  </div>
+
+  <div class="card">
+    <div class="h">Capital stack — ${money(o.totalCapex)}</div>
+    ${capexBar(o)}
+  </div>
+
+  <div class="duo">
+    <div class="card">
+      <div class="h">Revenue &amp; EBITDA vs rental price — monthly</div>
+      ${revChart(o.mo)}
+      <div class="legend"><span><i style="background:#c8ff00"></i>Revenue</span><span><i style="background:#7dd3fc"></i>EBITDA</span><span><i style="background:#ff5c6c"></i>Rental price (right axis)</span></div>
+    </div>
+    <div class="card">
+      <div class="h">Payback — cumulative equity cash</div>
+      ${paybackChart(o.mo,S.years)}
+    </div>
+  </div>
+
+  <div class="duo">
+    ${T.debt?`<div class="card"><div class="h">Debt coverage &amp; covenants</div>${dscrChart(o.yrs)}
+      <table style="margin-top:10px"><thead><tr><th>Covenant</th>${o.yrs.map(y=>`<th>Y${y.y}</th>`).join('')}</tr></thead><tbody>
+        <tr><td>ICR (EBITDA / interest)</td>${o.yrs.map(y=>`<td>${y.icr==null?'—':y.icr.toFixed(1)+'x'}</td>`).join('')}</tr>
+        <tr><td>Net debt / EBITDA (&lt; 4.0x)</td>${o.yrs.map(y=>{const v=y.nde;const bad=v!=null&&v>=4;return `<td style="color:${v==null?'var(--dim)':bad?'var(--fail)':'var(--pass)'}">${v==null?'—':v.toFixed(2)+'x'}</td>`;}).join('')}</tr>
+      </tbody></table></div>`:''}
+    <div class="card"><div class="h">Sensitivity — ${T.debt?'equity':'project'} IRR</div>${sensitivity()}</div>
+  </div>
+
+  <div class="card">
+    <div class="h">Annual P&amp;L — cluster</div>
+    <table><thead><tr><th>$</th>${o.yrs.map(y=>`<th>Y${y.y}</th>`).join('')}<th style="color:var(--power)">Total</th></tr></thead><tbody>
+      ${o.useColo?plRow('GPU rental revenue',o.yrs.map(y=>y.revG)):''}
+      ${o.useColo?plRow('Colocation revenue',o.yrs.map(y=>y.revC)):''}
+      ${plRow(o.useColo?'Total revenue':'Revenue',o.yrs.map(y=>y.rev),o.useColo)}
+      ${plRow('Electricity',o.yrs.map(y=>-y.elec))}
+      ${plRow('Warranty & support',o.yrs.map(y=>-y.warr))}
+      ${plRow('Network transit',o.yrs.map(y=>-y.trans))}
+      ${plRow('Site staff & O&M',o.yrs.map(y=>-y.oth))}
+      ${plRow(o.useFac?'Site ground rent':'Colocation fees',o.yrs.map(y=>-y.rent))}
+      ${o.useGA?plRow('Corporate G&A',o.yrs.map(y=>-y.ga)):''}
+      ${plRow('EBITDA',o.yrs.map(y=>y.ebitda),true)}
+      ${plRow('Depreciation',o.yrs.map(y=>-y.depr))}
+      ${plRow('EBIT',o.yrs.map(y=>y.ebit))}
+      ${T.debt?plRow('Interest',o.yrs.map(y=>-y.interest)):''}
+      ${(T.debt&&S.feePct>0)?plRow('Arrangement fee',o.yrs.map(y=>-y.fee)):''}
+      ${plRow('Tax',o.yrs.map(y=>-y.tax))}
+      ${plRow('Net profit',o.yrs.map(y=>y.ni),true)}
+      <tr><td style="color:var(--dim)">Net margin</td>${o.yrs.map(y=>{const m=y.rev>0?y.ni/y.rev:null;return `<td style="color:${m==null?'var(--dim)':m<0?'var(--fail)':'var(--dim)'}">${m==null?'—':(m*100).toFixed(1)+'%'}</td>`;}).join('')}<td style="color:${o.totNI/o.totRev<0?'var(--fail)':'var(--power)'}">${o.totRev>0?(o.totNI/o.totRev*100).toFixed(1)+'%':'—'}</td></tr>
+      <tr><td style="color:var(--dim)">Avg rental $/GPU-hr</td>${o.yrs.map(y=>`<td style="color:var(--dim)">${y.price.toFixed(2)}</td>`).join('')}<td style="color:var(--dim)">—</td></tr>
+      <tr><td style="color:var(--dim)">Utilization</td>${o.yrs.map(y=>`<td style="color:var(--dim)">${(y.util*100).toFixed(0)}%</td>`).join('')}<td style="color:var(--dim)">—</td></tr>
+    </tbody></table>
+  </div>
+
+  ${(()=>{
+    let cum=0; const cums=o.yrs.map(y=>{cum+=y.fcfe;return cum;});
+    return `<div class="card">
+    <div class="h">Annual cash flow — cluster</div>
+    <table><thead><tr><th>$</th>${o.yrs.map(y=>`<th>Y${y.y}</th>`).join('')}<th style="color:var(--power)">Total</th></tr></thead><tbody>
+      ${plRow('Cash from operations',o.yrs.map(y=>y.ni+y.depr-y.dwc))}
+      ${plRow('CAPEX',o.yrs.map(y=>-y.capex))}
+      ${T.debt?plRow('Debt drawdown',o.yrs.map(y=>y.draw)):''}
+      ${T.debt?plRow('Principal repayments',o.yrs.map(y=>-y.repay)):''}
+      ${plRow('Free cash flow to equity',o.yrs.map(y=>y.fcfe),true)}
+      <tr><td style="color:var(--dim)">Cumulative equity cash</td>${cums.map(v=>`<td style="color:${v<0?'var(--fail)':'var(--dim)'}">${money(v)}</td>`).join('')}<td style="color:var(--dim)">—</td></tr>
+    </tbody></table>
+    <div class="foot">Excludes exit proceeds (${money(o.termProj)} terminal value lands in month ${o.N}). Cumulative trough ≈ the peak equity need shown above.</div>
+  </div>`;})()}
+
+  ${o.useFac?(()=>{
+    const T5=(f)=>o.yrs.reduce((s,y)=>s+f(y),0);
+    const dcRev=T5(y=>y.revC+y.intR), dcCost=T5(y=>y.rent+y.othF), dcEb=dcRev-dcCost;
+    const gRev=T5(y=>y.revG), gCost=T5(y=>y.intR+y.elec+y.warr+(y.oth-y.othF)+y.ga), gEb=gRev-gCost;
+    const cEb=T5(y=>y.ebitda);
+    const row=(lb,a,b,c)=>`<tr><td>${lb}</td><td>${a}</td><td>${b}</td><td style="color:var(--power)">${c}</td></tr>`;
+    return `<div class="card">
+    <div class="h">Two-layer view — PropCo (DC) / OpCo (GPU) · ${S.years}-yr totals</div>
+    <table><thead><tr><th></th><th>DC layer</th><th>GPU layer</th><th>Consolidated</th></tr></thead><tbody>
+      ${row('Revenue',money(dcRev),money(gRev),money(o.totRev))}
+      ${row('&nbsp;&nbsp;of which internal rent',money(T5(y=>y.intR)),'('+money(T5(y=>y.intR))+')','—')}
+      ${row('Direct cash costs',money(-dcCost),money(-gCost),money(-(dcCost+gCost)))}
+      ${row('Segment EBITDA',money(dcEb),money(gEb),money(cEb))}
+      ${row('EBITDA margin',pctf(dcEb/dcRev),pctf(gEb/gRev),pctf(cEb/o.totRev))}
+    </tbody></table>
+    <div class="foot">Analytical lens only — the DC layer charges the GPU layer a notional arm's-length rent at the colo market rate ($${S.coloRate}/kW/mo, ${(S.coloEsc*100).toFixed(1)}%/yr) for its ${o.gpuMW.toFixed(2)} MW. This eliminates on consolidation: all real economics (cost basis, IRR, DSCR, verdict) use the owned-facility cost of ≈$73/kW/mo (depreciation + ground rent + O&M share). Depreciation and G&A sit below this view (G&A charged to GPU layer).</div>
+  </div>`;})():''}
+
+  <div class="card">
+    <div class="h">Scenarios — bear / base / bull</div>
+    ${scenarios()}
+  </div>
+
+  <div class="foot">
+    Monthly engine over ${o.N} months. Two capital layers: servers depreciate to ${(S.residualPct*100).toFixed(0)}% residual over the hold; facility over ${S.facilityLife} yrs, exiting at net book value. ${o.useWC?`Working capital holds ${S.arDays} days of revenue in receivables${o.useExit?'':' (released at liquidation exit)'}. `:''}${T.debt?`Debt drawn pro-rata with deployment, equal-principal amortization; ${(S.feePct*100).toFixed(2)}% arrangement fee expensed at kick-off. `:''}Exit: ${o.useExit?`going-concern at ${S.exitMult}x LTM EBITDA (buyer assumes working capital)`:'liquidation — hardware residual + facility NBV'}. Equity IRR is levered FCFE net of exit debt. Sensitivity and scenario cells rerun the full engine. Decision tool, not investment advice.
+  </div>`;
+  document.getElementById('rentNote').textContent='start · ≈'+money(o.rentMo)+'/GPU/mo';
+  document.getElementById('srvNote').textContent=S.servers.toLocaleString()+' × 8-GPU nodes · '+o.gpuMW.toFixed(2)+' MW IT';
+}
+function plRow(label,arr,bold){
+  const tot=arr.reduce((s,v)=>s+v,0);
+  return `<tr${bold?' class="bold"':''}><td>${label}</td>`+
+    arr.map(v=>`<td style="color:${v<0?'var(--fail)':bold?'var(--power)':'var(--ink)'}">${money(v)}</td>`).join('')+
+    `<td style="color:${tot<0?'var(--fail)':'var(--power)'};border-left:1px solid var(--line2)">${money(tot)}</td></tr>`;
+}
+
+/* ═══════════════ wiring ═══════════════ */
+const PRIM=[['serverPrice'],['netPct',0.01],['powerKW'],['elec'],['rental'],['facilityPerMW',1e6],['years']];
+function bindGpuCount(){
+  const n=document.getElementById('gpuCount'),r=document.getElementById('gpuCount_r');
+  const g=S.servers*S.gpus;
+  n.value=g; r.value=g;
+  const apply=v=>{let gpu=Math.max(S.gpus,Math.round(v/S.gpus)*S.gpus);S.servers=gpu/S.gpus;render();};
+  n.oninput=()=>{let v=parseFloat(n.value);if(isNaN(v))v=S.gpus;apply(v);r.value=S.servers*S.gpus;};
+  r.oninput=()=>{apply(parseFloat(r.value));n.value=S.servers*S.gpus;};
+}
+function bindColo(){
+  const n=document.getElementById('coloPerKWMo'),r=document.getElementById('coloPerKWMo_r');
+  n.value=S.coloPerKWMo; r.value=S.coloPerKWMo;
+  n.oninput=()=>{let v=parseFloat(n.value);if(isNaN(v))v=0;S.coloPerKWMo=v;r.value=v;render();};
+  r.oninput=()=>{S.coloPerKWMo=parseFloat(r.value);n.value=S.coloPerKWMo;render();};
+}
+function setIdcMode(build){
+  T.facility=build;
+  document.getElementById('mode_build').classList.toggle('on',build);
+  document.getElementById('mode_lease').classList.toggle('on',!build);
+  document.getElementById('drv_build').style.display=build?'':'none';
+  document.getElementById('drv_lease').style.display=build?'none':'';
+  const tf=document.getElementById('t_facility'); if(tf)tf.checked=build;
+  refreshDisabled(F_REV);refreshDisabled(F_COST);refreshDisabled(F_FIN);
+  render();
+}
+function bindPrimary([k,scale]){
+  const sc=scale||1;
+  const n=document.getElementById(k),r=document.getElementById(k+'_r');
+  n.value=+(S[k]/sc).toFixed(4); r.value=S[k]/sc;
+  n.oninput=()=>{let v=parseFloat(n.value);if(isNaN(v))v=0;S[k]=v*sc;r.value=v;render();};
+  r.oninput=()=>{S[k]=parseFloat(r.value)*sc;n.value=+(S[k]/sc).toFixed(4);render();};
+}
+function buildGroup(id,fields){
+  const b=document.getElementById(id);
+  const lbl=f=>`<span class="flabel">${f.label}${f.info?`<span class="ttip" data-tip="${f.info.replace(/"/g,'&quot;')}">ⓘ</span>`:''}</span>`;
+  b.innerHTML=fields.map(f=>{
+    if(f.options){
+      return `<div class="arow" id="wrap_${f.k}">${lbl(f)}
+        <span class="val"><select id="a_${f.k}">${f.options.map(v=>`<option value="${v}"${v===S[f.k]?' selected':''}>${v} · ${(v*S.gpus).toLocaleString()} GPU</option>`).join('')}</select><span class="unit">${f.unit}</span></span></div>`;
+    }
+    const disp=f.pct?+(S[f.k]*100).toFixed(4):(f.scale?+(S[f.k]/f.scale).toFixed(4):S[f.k]);
+    return `<div class="arow" id="wrap_${f.k}">${lbl(f)}
+      <span class="val"><input type="number" id="a_${f.k}" step="${f.step}" value="${disp}"><span class="unit">${f.unit}</span></span></div>`;}).join('');
+  fields.forEach(f=>{const i=document.getElementById('a_'+f.k);
+    if(f.options){i.onchange=()=>{S[f.k]=parseFloat(i.value);render();};return;}
+    i.oninput=()=>{let v=parseFloat(i.value);if(isNaN(v))v=0;S[f.k]=f.pct?v/100:(f.scale?v*f.scale:v);render();};});
+  refreshDisabled(fields);
+}
+function refreshDisabled(fields){
+  fields.forEach(f=>{if(f.tog||f.invTog){const on=f.tog?T[f.tog]:!T[f.invTog];const w=document.getElementById('wrap_'+f.k);
+    if(w){w.style.opacity=on?'1':'.35';document.getElementById('a_'+f.k).disabled=!on;}}});
+}
+function toggle(id){const e=document.getElementById(id);e.classList.toggle('open');
+  document.getElementById(id+'_m').textContent=e.classList.contains('open')?'−':'+';}
+function bindToggles(){
+  [['t_debt','debt'],['t_colo','colo'],['t_ga','ga'],['t_wc','wc'],['t_exit','exit'],['t_exitcur','exitcur'],['t_lock','lock'],['t_decline','decline'],['t_util','util'],['t_phase','phase']].forEach(([id,key])=>{
+    const c=document.getElementById(id); c.checked=T[key];
+    c.onchange=()=>{T[key]=c.checked; refreshDisabled(F_REV);refreshDisabled(F_COST);refreshDisabled(F_FIN); render();};
+  });
+}
+function resetAll(){S={...DEF};T={...TOG};PRIM.forEach(bindPrimary);bindGpuCount();bindColo();bindToggles();setIdcMode(T.facility);buildGroup('body_rev',F_REV);buildGroup('body_cost',F_COST);buildGroup('body_fin',F_FIN);render();}
+function preset(name){if(name==='saudi'){S.elec=0.047;}PRIM.forEach(bindPrimary);bindGpuCount();bindColo();buildGroup('body_rev',F_REV);buildGroup('body_cost',F_COST);buildGroup('body_fin',F_FIN);render();}
+
+/* ═══════════════ product & model selectors ═══════════════ */
+function renderProdBar(){
+  document.getElementById('prodbar').innerHTML=PRODUCTS.map((p,i)=>
+    `<button class="prodcard ${p.id===PROD?'on':''}" onclick="setProduct('${p.id}')">
+      <div class="pn"><span class="pnum">${String(i+1).padStart(2,'0')}</span>${p.name}</div><div class="ps">${p.sub}</div></button>`).join('');
+}
+function renderModelBar(){
+  const prod=PRODUCTS.find(p=>p.id===PROD);
+  const bar=document.getElementById('modelbar');
+  if(!prod.gpu){bar.classList.add('hidden');return;}
+  bar.classList.remove('hidden');
+  bar.innerHTML='<span class="mlabel">GPU model</span>'+GPU_MODELS.map(m=>
+    `<button class="modelbtn ${m.id===GPU?'on':''}" onclick="setModel('${m.id}')">
+      ${m.name} <span class="mp">${m.unit==='rack'?'rack':'8-GPU'} · $${(m.cost/1000).toFixed(0)}k · ${m.power}kW</span></button>`).join('');
+}
+function setModel(id){
+  const m=GPU_MODELS.find(x=>x.id===id); if(!m)return;
+  GPU=id;
+  S.gpus=m.gpus; S.powerKW=m.power; S.serverPrice=m.cost;
+  // liquid-cooled models drive facility cost & PUE
+  if(m.liquid){S.facilityPerMW=12000000; S.pue=1.25;}
+  else{S.facilityPerMW=9000000; S.pue=1.45;}
+  syncInputs(); renderModelBar(); render();
+}
+function setProduct(id){
+  const prod=PRODUCTS.find(p=>p.id===id); if(!prod)return;
+  PROD=id;
+  T={...T, ...prod.tog};
+  T._gpu=prod.gpu;
+  Object.assign(S, prod.ov);
+  // show/hide GPU-specific core inputs for PropCo-only products
+  ['serverPrice','gpuCount','netPct','powerKW'].forEach(k=>{
+    const el=document.getElementById(k); if(!el)return;
+    const drv=el.closest('.drv'); if(drv)drv.style.display=prod.gpu?'':'none';
+  });
+  syncInputs(); renderProdBar(); renderModelBar();
+  setIdcMode(T.facility);
+  render();
+}
+/* push S back into all visible input widgets */
+function syncInputs(){
+  PRIM.forEach(([k,scale])=>{const sc=scale||1;const n=document.getElementById(k),r=document.getElementById(k+'_r');
+    if(n){n.value=+(S[k]/sc).toFixed(4);} if(r){r.value=S[k]/sc;}});
+  const gc=document.getElementById('gpuCount'),gcr=document.getElementById('gpuCount_r');
+  if(gc){gc.value=S.servers*S.gpus;} if(gcr){gcr.value=S.servers*S.gpus;}
+  const cp=document.getElementById('coloPerKWMo'),cpr=document.getElementById('coloPerKWMo_r');
+  if(cp){cp.value=S.coloPerKWMo;} if(cpr){cpr.value=S.coloPerKWMo;}
+  buildGroup('body_rev',F_REV);buildGroup('body_cost',F_COST);buildGroup('body_fin',F_FIN);
+}
+
+renderProdBar();
+renderModelBar();
+PRIM.forEach(bindPrimary);
+bindGpuCount();
+bindColo();
+bindToggles();
+setIdcMode(TOG.facility);
+buildGroup('body_rev',F_REV);
+buildGroup('body_cost',F_COST);
+buildGroup('body_fin',F_FIN);
+render();
+</script>
+</body>
+</html>
