@@ -309,11 +309,11 @@ let S={...DEF}, T={...TOG};
 /* ═══════════════ GPU model catalogue (turnkey landed prices, mid-2026) ═══════════════ */
 /* nodeCost = full system: GPUs + CPU/mem/storage + chassis + liquid cooling + integration */
 const GPU_MODELS=[
-  {id:'h100',  name:'H100 SXM',    gpus:8,  power:10.2, cost:280000,  liquid:false, unit:'node'},
-  {id:'h200',  name:'H200',        gpus:8,  power:10.4, cost:320000,  liquid:false, unit:'node'},
-  {id:'b200',  name:'B200',        gpus:8,  power:14.0, cost:420000,  liquid:false, unit:'node'},
-  {id:'b300',  name:'B300',        gpus:8,  power:15.0, cost:550000,  liquid:true,  unit:'node'},
-  {id:'gb300', name:'GB300 NVL72', gpus:72, power:140,  cost:3850000, liquid:true,  unit:'rack'},
+  {id:'h100',  name:'H100 SXM',    gpus:8,  power:10.2, cost:280000,  liquid:false, unit:'node', rental:2.00},
+  {id:'h200',  name:'H200',        gpus:8,  power:10.4, cost:320000,  liquid:false, unit:'node', rental:2.50},
+  {id:'b200',  name:'B200',        gpus:8,  power:14.0, cost:420000,  liquid:false, unit:'node', rental:3.60},
+  {id:'b300',  name:'B300',        gpus:8,  power:15.0, cost:550000,  liquid:true,  unit:'node', rental:4.40},
+  {id:'gb300', name:'GB300 NVL72', gpus:72, power:140,  cost:3850000, liquid:true,  unit:'rack', rental:5.60},
 ];
 let GPU='b300'; // current model id
 
@@ -956,12 +956,13 @@ function renderModelBar(){
   bar.classList.remove('hidden');
   bar.innerHTML='<span class="mlabel">GPU model</span>'+GPU_MODELS.map(m=>
     `<button class="modelbtn ${m.id===GPU?'on':''}" onclick="setModel('${m.id}')">
-      ${m.name} <span class="mp">${m.unit==='rack'?'rack':'8-GPU'} · $${(m.cost/1000).toFixed(0)}k · ${m.power}kW</span></button>`).join('');
+      ${m.name} <span class="mp">${m.unit==='rack'?'rack':'8-GPU'} · $${(m.cost/1000).toFixed(0)}k · ${m.power}kW · $${m.rental.toFixed(2)}/hr</span></button>`).join('');
 }
 function setModel(id){
   const m=GPU_MODELS.find(x=>x.id===id); if(!m)return;
   GPU=id;
   S.gpus=m.gpus; S.powerKW=m.power; S.serverPrice=m.cost;
+  if(m.rental!=null)S.rental=m.rental;
   // liquid-cooled models drive facility cost & PUE
   if(m.liquid){S.facilityPerMW=12000000; S.pue=1.25;}
   else{S.facilityPerMW=9000000; S.pue=1.45;}
