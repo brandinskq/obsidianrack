@@ -296,7 +296,7 @@ const DEF={
   servers:512, gpus:8, deployMonths:3, leadMonths:2, lockYears:5,
   coloMW:2, coloRate:220, coloLeaseYears:10, coloEsc:0.025,
   rentalDecline:0.12, utilStart:0.45, utilSteady:0.85, utilRamp:6,
-  powerKW:15, pue:1.45, warrantyPct:0.05, otherPct:0.025, residualPct:0.20, tax:0.15,
+  powerKW:15, pue:1.45, warrantyPct:0.05, otherPct:0.025, residualPct:0.20, tax:0.15, saudiPct:1.00,
   gaAnnual:3340000, gaInfl:0.08,
   facilityPerMW:9000000, facilityLife:20, equipLife:5,
   siteRentPerMW:150000, coloPerKWMo:200,
@@ -362,7 +362,7 @@ const F_COST=[
   {k:'gaAnnual',label:'Corporate G&A',unit:'$M / yr',step:0.25,scale:1e6,tog:'ga',info:'Corporate overhead — management, legal, finance, sales, HR. Fixed regardless of scale, so it dilutes as GPU count grows.'},
   {k:'gaInfl',label:'G&A inflation',unit:'% / yr',step:0.5,pct:true,tog:'ga',info:'Annual growth in G&A, driven mainly by salary escalation.'},
   {k:'residualPct',label:'Residual value (HW)',unit:'% at exit',step:1,pct:true,info:'Server resale value at exit, as % of purchase price. H100 held 35-50% at 3yr; 20% is a conservative floor for a 5yr-old B300.'},
-  {k:'tax',label:'Tax rate (on PBT)',unit:'%',step:1,pct:true,info:'Corporate tax on pre-tax profit. Saudi CIT is 20%; blended with Zakat considerations here.'},
+  {k:'saudiPct',label:'Saudi / GCC ownership',unit:'%',step:5,pct:true,info:'Share of equity held by Saudi/GCC owners. Effective tax = ownership × 2.5% (Zakat) + (1−ownership) × 20% (foreign CIT). Zakat is technically levied on the Zakat base (net worth), approximated here on profit. 100% Saudi ⇒ 2.5% effective; 0% ⇒ 20%.'},
 ];
 const F_FIN=[
   {k:'debtPct',label:'Term loan (% of capex)',unit:'%',step:5,pct:true,tog:'debt',info:'Senior term loan sized as a share of total capex; repaid in equal monthly principal instalments over the tenor. The remainder is equity. 60% is typical project gearing.'},
@@ -383,6 +383,7 @@ function irr(cf){
 }
 function compute(p,tog){
   const H=730, N=Math.round(p.years*12), gpus=p.gpus;
+  const taxRate=(p.saudiPct!=null)?(p.saudiPct*0.025+(1-p.saudiPct)*0.20):p.tax; // Zakat 2.5% (Saudi/GCC) blended with 20% CIT (foreign)
   const useGpu0=tog._gpu!==false;
   // For PropCo-only products (Data Hall / Colo), the "build unit" is colo MW, not GPU servers.
   const target=useGpu0?p.servers:Math.max(1,Math.round(p.coloMW));
@@ -460,11 +461,11 @@ function compute(p,tog){
     if(dBal[m]<1e-6)dBal[m]=0;
     feeA[m]=(m===1&&useDebt)?totalDebt*p.feePct:0;
     pbt[m]=ebit[m]-dInt[m]-feeA[m];
-    tax[m]=Math.max(0,pbt[m]*p.tax);
+    tax[m]=Math.max(0,pbt[m]*taxRate);
     ni[m]=pbt[m]-tax[m];
     cfo[m]=ni[m]+depr[m]-dwc[m];
     capexCf[m]=-capex[m];
-    projFcf[m]=ebitda[m]-Math.max(0,ebit[m]*p.tax)+capexCf[m]-dwc[m];
+    projFcf[m]=ebitda[m]-Math.max(0,ebit[m]*taxRate)+capexCf[m]-dwc[m];
     eqFcf[m]=cfo[m]+capexCf[m]+dDraw[m]-dRepay[m];
     cumEq[m]=cumEq[m-1]+eqFcf[m];
   }
