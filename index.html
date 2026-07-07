@@ -313,7 +313,7 @@ const GPU_MODELS=[
   {id:'h200',  name:'H200',        gpus:8,  power:10.4, cost:320000,  liquid:false, unit:'node', rental:2.50},
   {id:'b200',  name:'B200',        gpus:8,  power:14.0, cost:420000,  liquid:false, unit:'node', rental:3.60},
   {id:'b300',  name:'B300',        gpus:8,  power:15.0, cost:550000,  liquid:true,  unit:'node', rental:4.40},
-  {id:'gb300', name:'GB300 NVL72', gpus:72, power:140,  cost:6200000, liquid:true,  unit:'rack', rental:8.60},
+  {id:'gb300', name:'GB300 NVL72', gpus:72, power:140,  cost:3850000, liquid:true,  unit:'rack', rental:5.60},
 ];
 let GPU='b300'; // current model id
 
@@ -518,11 +518,13 @@ function compute(p,tog){
   const minICR=icrVals.length?Math.min(...icrVals):null;
   const peakDebt=Math.max(...dBal.slice(1));
 
-  const ssUtil=p.utilSteady, ssBill=gpus*H*ssUtil;
-  const gaPerServerMo=useGA?(p.gaAnnual/12)/Math.max(1,target):0;
-  const facGpuPerServer=useFac?(p.powerKW/1000)*p.facilityPerMW:0;
-  const rentPerServerMo=useFac?(p.powerKW/1000*p.siteRentPerMW/12):(p.powerKW*p.coloPerKWMo);
-  const cb={depr:p.serverPrice*(1-p.residualPct)/(p.equipLife*12)/ssBill,
+  let cb, costBasis, unitPrice, unitStr, rentMo;
+  if(useGpu){
+    const ssUtil=p.utilSteady, ssBill=gpus*H*ssUtil;
+    const gaPerServerMo=useGA?(p.gaAnnual/12)/Math.max(1,target):0;
+    const facGpuPerServer=useFac?(p.powerKW/1000)*p.facilityPerMW:0;
+    const rentPerServerMo=useFac?(p.powerKW/1000*p.siteRentPerMW/12):(p.powerKW*p.coloPerKWMo);
+    cb={depr:p.serverPrice*(1-p.residualPct)/(p.equipLife*12)/ssBill,
             net:(p.serverPrice*p.netPct/(p.equipLife*12)+p.transitMo/Math.max(1,target))/ssBill,
             facility:useFac?(facGpuPerServer/(p.facilityLife*12))/ssBill:0,
             rent:rentPerServerMo/ssBill,
@@ -530,8 +532,20 @@ function compute(p,tog){
             warr:p.serverPrice*(1+p.netPct)*p.warrantyPct/12/ssBill,
             oth:(p.serverPrice*(1+p.netPct)+facGpuPerServer)*p.otherPct/12/ssBill,
             ga:gaPerServerMo/ssBill};
-  const costBasis=cb.depr+cb.net+cb.facility+cb.rent+cb.elec+cb.warr+cb.oth+cb.ga;
-  const margin=p.rental-costBasis, marginPct=p.rental>0?margin/p.rental:0;
+    costBasis=cb.depr+cb.net+cb.facility+cb.rent+cb.elec+cb.warr+cb.oth+cb.ga;
+    unitPrice=p.rental; unitStr='/GPU-hr'; rentMo=p.rental*H*p.utilSteady;
+  } else {
+    // PropCo (Data Hall / Colo): unit economics per kW of leasable capacity per month
+    const kW=Math.max(1,coloMW*1000);
+    cb={depr:(facTotal/(p.facilityLife*12))/kW, net:0, warr:0, facility:0,
+        rent:(coloMW*p.siteRentPerMW/12)/kW,
+        elec:0,
+        oth:(facTotal*p.otherPct/12)/kW,
+        ga:useGA?((p.gaAnnual/12)/kW):0};
+    costBasis=cb.depr+cb.rent+cb.oth+cb.ga;
+    unitPrice=p.coloRate; unitStr='/kW\u00b7mo'; rentMo=p.coloRate;
+  }
+  const margin=unitPrice-costBasis, marginPct=unitPrice>0?margin/unitPrice:0;
   const avgEbMargin=(()=>{let r=0,e=0;for(let m=1;m<=N;m++){r+=rev[m];e+=ebitda[m];}return r>0?e/r:0;})();
 
   const mo=[]; for(let m=1;m<=N;m++)mo.push({m,rev:rev[m],ebitda:ebitda[m],price:price[m],cumEq:cumEq[m],debt:dBal[m]});
@@ -542,7 +556,7 @@ function compute(p,tog){
   return {N,useDebt,useFac,useGA,useWC,useExit,useExitCur,useColo,gpuMW,coloMW,totalCapex,servCapex:target*p.serverPrice,netCapex,facTotal,mwIT,facExit,peakDebt,debtEnd,residual,servResidual,totalDebt,termProj,peakEquity,arEnd:ar[N],
     pIRR,eIRR,projNPV,eqNPV,moic,minDSCR,minICR,totRev,totNI,totEb,
     paybackYears:payM==null?null:payM/12,
-    cb,costBasis,margin,marginPct,avgEbMargin,rentMo:p.rental*H*p.utilSteady,
+    cb,costBasis,margin,marginPct,avgEbMargin,rentMo,useGpu,unitPrice,unitStr,
     yrs,mo};
 }
 
@@ -706,7 +720,7 @@ function verdict(o){
   return `<div class="verdict">
     <div class="word"><div class="w" style="color:${word[1]}">${word[0]}</div><div class="sub">${word[2]}</div></div>
     <div class="tests">
-      ${chip(unitPass,'Unit margin',dol(o.margin)+'/hr',`price ${dol(S.rental)} vs cost ${dol(o.costBasis)}`)}
+      ${chip(unitPass,'Unit margin',dol(o.margin)+o.unitStr,`price ${dol(o.unitPrice)} vs cost ${dol(o.costBasis)}`)}
       ${chip(debtPass,'Debt cover',T.debt?(o.minDSCR==null?'n/a':o.minDSCR.toFixed(2)+'x'):'no debt',T.debt?'min DSCR vs 1.20x covenant':'all-equity structure')}
       ${chip(retPass,'Return vs hurdle',irrf(retIRR),`${T.debt?'equity':'project'} IRR vs ${(S.disc*100).toFixed(0)}% hurdle`)}
     </div></div>`;
@@ -717,8 +731,9 @@ function render(){
   const o=compute(S,T);
   const kpi=(l,v,s,c)=>`<div class="kpi"><div class="l">${l}</div><div class="v" style="color:${c||'var(--ink)'}">${v}</div>${s?`<div class="s">${s}</div>`:''}</div>`;
 
-  document.getElementById('tape').innerHTML=
-    `<b class="num">${(S.servers*S.gpus).toLocaleString()}</b> GPUs @ <b class="num cy">${money(S.serverPrice)}</b>/node · power <b class="num am">$${S.elec.toFixed(3)}/kWh</b> · renting <b class="num">$${S.rental.toFixed(2)}/GPU-hr</b>${(T.lock&&S.lockYears>0)?` <span style="color:var(--pass)">locked ${S.lockYears}yr</span>${T.decline?` then spot (−${(S.rentalDecline*100).toFixed(0)}%/yr)`:''}`:(T.decline?` <span>spot, eroding ${(S.rentalDecline*100).toFixed(0)}%/yr</span>`:'')} · <b class="num">${S.years}-yr</b> hold${(T.colo&&T.facility)?` · colo <b class="num am">${S.coloMW}MW @ $${S.coloRate}/kW</b>`:''}${T.debt?` · <b class="num">${(S.debtPct*100).toFixed(0)}%</b> debt`:' · all-equity'}`;
+  document.getElementById('tape').innerHTML= o.useGpu?
+    `<b class="num">${(S.servers*S.gpus).toLocaleString()}</b> GPUs @ <b class="num cy">${money(S.serverPrice)}</b>/node · power <b class="num am">$${S.elec.toFixed(3)}/kWh</b> · renting <b class="num">$${S.rental.toFixed(2)}/GPU-hr</b>${(T.lock&&S.lockYears>0)?` <span style="color:var(--pass)">locked ${S.lockYears}yr</span>${T.decline?` then spot (−${(S.rentalDecline*100).toFixed(0)}%/yr)`:''}`:(T.decline?` <span>spot, eroding ${(S.rentalDecline*100).toFixed(0)}%/yr</span>`:'')} · <b class="num">${S.years}-yr</b> hold${(T.colo&&T.facility)?` · colo <b class="num am">${S.coloMW}MW @ $${S.coloRate}/kW</b>`:''}${T.debt?` · <b class="num">${(S.debtPct*100).toFixed(0)}%</b> debt`:' · all-equity'}`
+    : `<b class="num">${S.coloMW}</b> MW data hall · dev <b class="num cy">${money(S.facilityPerMW)}</b>/MW · lease <b class="num am">$${S.coloRate}/kW/mo</b>${(T.colo&&S.coloEsc>0)?` +${(S.coloEsc*100).toFixed(1)}%/yr`:''} · <b class="num">${S.years}-yr</b> hold${T.debt?` · <b class="num">${(S.debtPct*100).toFixed(0)}%</b> debt`:' · all-equity'}`;
 
   document.getElementById('out').innerHTML=`
   ${verdict(o)}
@@ -756,21 +771,21 @@ function render(){
     ${kpi('Min DSCR',T.debt?(o.minDSCR==null?'n/a':o.minDSCR.toFixed(2)+'x'):'—',T.debt?('vs 1.20x · min ICR '+(o.minICR==null?'n/a':o.minICR.toFixed(1)+'x')):'debt off',!T.debt?'var(--dim)':(o.minDSCR!=null&&o.minDSCR<1.2)?'var(--fail)':'var(--pass)')}
     ${kpi('Peak equity need',money(o.peakEquity),'max cash drawdown, funded by equity')}
     ${kpi('Exit value',money(o.termProj),o.useExit?(S.exitMult+'x LTM EBITDA · '+(o.useExitCur?'current-price':'market re-contract')):'liquidation: residual'+(o.useWC?' + AR':''),o.useExit?'var(--power)':'var(--dim)')}
-    ${kpi('Cost basis',dol(o.costBasis),'per GPU-hr, steady state')}
-    ${kpi('Rental / GPU / mo',money(o.rentMo),'start · '+(S.utilSteady*100).toFixed(0)+'% util')}
+    ${kpi('Cost basis',dol(o.costBasis),'per '+(o.useGpu?'GPU-hr':'kW/mo')+', steady state')}
+    ${kpi(o.useGpu?'Rental / GPU / mo':'Lease / kW / mo',o.useGpu?money(o.rentMo):dol(o.rentMo),o.useGpu?('start · '+(S.utilSteady*100).toFixed(0)+'% util'):'committed capacity')}
   </div>
 
   <div class="card">
-    <div class="h">Where each rental dollar goes — per GPU-hour</div>
-    ${dollarBar(o,S.rental)}
+    <div class="h">Where each ${o.useGpu?'rental':'lease'} dollar goes — per ${o.useGpu?'GPU-hour':'kW / month'}</div>
+    ${dollarBar(o,o.unitPrice)}
     <div class="legend">
-      <span><i style="background:${CC.depr}"></i>Server depreciation <span class="num">${dol(o.cb.depr)}</span></span>
+      ${o.useGpu?`<span><i style="background:${CC.depr}"></i>Server depreciation <span class="num">${dol(o.cb.depr)}</span></span>
       <span><i style="background:${CC.net}"></i>Network <span class="num">${dol(o.cb.net)}</span></span>
       <span><i style="background:${CC.warr}"></i>Warranty <span class="num">${dol(o.cb.warr)}</span></span>
-      ${o.useFac?`<span><i style="background:${CC.facility}"></i>Facility <span class="num">${dol(o.cb.facility)}</span></span>`:''}
-      <span><i style="background:${CC.rent}"></i>${o.useFac?'Ground rent':'Colo fee'} <span class="num">${dol(o.cb.rent)}</span></span>
-      <span><i style="background:${CC.elec}"></i>Electricity <span class="num">${dol(o.cb.elec)}</span></span>
-      <span><i style="background:${CC.oth}"></i>Site staff <span class="num">${dol(o.cb.oth)}</span></span>
+      ${o.useFac?`<span><i style="background:${CC.facility}"></i>Facility <span class="num">${dol(o.cb.facility)}</span></span>`:''}`:`<span><i style="background:${CC.depr}"></i>Facility depreciation <span class="num">${dol(o.cb.depr)}</span></span>`}
+      <span><i style="background:${CC.rent}"></i>${o.useGpu?(o.useFac?'Ground rent':'Colo fee'):'Ground rent'} <span class="num">${dol(o.cb.rent)}</span></span>
+      ${o.useGpu?`<span><i style="background:${CC.elec}"></i>Electricity <span class="num">${dol(o.cb.elec)}</span></span>`:''}
+      <span><i style="background:${CC.oth}"></i>${o.useGpu?'Site staff':'O&amp;M'} <span class="num">${dol(o.cb.oth)}</span></span>
       ${o.useGA?`<span><i style="background:${CC.ga}"></i>Corporate G&amp;A <span class="num">${dol(o.cb.ga)}</span></span>`:''}
       <span><i style="background:${o.margin>=0?CC.profit:CC.loss}"></i>${o.margin>=0?'Profit':'Loss'} <span class="num">${dol(Math.abs(o.margin))}</span></span>
     </div>
