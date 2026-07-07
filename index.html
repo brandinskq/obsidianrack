@@ -553,7 +553,7 @@ function compute(p,tog){
 
   const peakEquity=Math.max(0,-Math.min(0,...cumEq.slice(1)));
 
-  return {N,useDebt,useFac,useGA,useWC,useExit,useExitCur,useColo,gpuMW,coloMW,totalCapex,servCapex:target*p.serverPrice,netCapex,facTotal,mwIT,facExit,peakDebt,debtEnd,residual,servResidual,totalDebt,termProj,peakEquity,arEnd:ar[N],
+  return {N,useDebt,useFac,useGA,useWC,useExit,useExitCur,useColo,gpuMW,coloMW,totalCapex,servCapex:useGpu?target*p.serverPrice:0,netCapex,facTotal,mwIT,facExit,peakDebt,debtEnd,residual,servResidual,totalDebt,termProj,peakEquity,arEnd:ar[N],
     pIRR,eIRR,projNPV,eqNPV,moic,minDSCR,minICR,totRev,totNI,totEb,
     paybackYears:payM==null?null:payM/12,
     cb,costBasis,margin,marginPct,avgEbMargin,rentMo,useGpu,unitPrice,unitStr,
@@ -592,7 +592,7 @@ function capexBar(o){
   let x=pad, r=`<rect x="${x}" y="${y}" width="${sw.toFixed(1)}" height="${barH}" fill="${CC.depr}" rx="2"/>`; x+=sw;
   if(nw>0.3){r+=`<rect x="${x.toFixed(1)}" y="${y}" width="${nw.toFixed(1)}" height="${barH}" fill="${CC.net}" rx="2"/>`; x+=nw;}
   if(fw>0.3)r+=`<rect x="${x.toFixed(1)}" y="${y}" width="${fw.toFixed(1)}" height="${barH}" fill="${CC.facility}" rx="2"/>`;
-  r+=`<text x="${pad}" y="${y+barH+14}" fill="#94a0ae" font-size="10" font-family="ui-monospace,monospace">servers ${money(o.servCapex)}${o.netCapex>0?` · network ${money(o.netCapex)}`:''}${o.useFac?` · facility ${money(o.facTotal)} (${o.mwIT.toFixed(2)} MW IT)`:''}</text>`;
+  r+=`<text x="${pad}" y="${y+barH+14}" fill="#94a0ae" font-size="10" font-family="ui-monospace,monospace">${o.useGpu?`servers ${money(o.servCapex)}${o.netCapex>0?` · network ${money(o.netCapex)}`:''}${o.useFac?' · ':''}`:''}${o.useFac?`facility ${money(o.facTotal)} (${o.mwIT.toFixed(2)} MW IT)`:''}</text>`;
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}">${r}</svg>`;
 }
 function revChart(mo){
