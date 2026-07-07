@@ -247,6 +247,11 @@
           <div class="val"><input type="number" id="coloRate" step="10"><span class="unit">$ / kW·mo</span></div></div>
         <input type="range" id="coloRate_r" min="80" max="400" step="10">
       </div>
+      <div class="drv" id="occRow" style="display:none">
+        <div class="row"><label>Occupancy / lease-up<span class="hint">% of capacity leased</span><span class="ttip" data-tip="Share of sellable capacity actually leased to tenants. Vacant capacity still carries facility depreciation, O&amp;M and G&amp;A, so lower occupancy thins the margin. Stabilised data centres run 85-95%.">ⓘ</span></label>
+          <div class="val"><input type="number" id="occupancy" step="5"><span class="unit">%</span></div></div>
+        <input type="range" id="occupancy_r" min="40" max="100" step="5">
+      </div>
       <div class="drv">
         <div class="row rowstack"><label>IDC strategy<span class="hint">own-build capex vs lease colocation</span></label>
           <div class="modeseg"><button id="mode_build" class="modebtn" onclick="setIdcMode(true)">Own-build</button><button id="mode_lease" class="modebtn" onclick="setIdcMode(false)">Lease / colocation</button></div>
@@ -301,7 +306,7 @@ const DEF={
   servers:512, gpus:8, deployMonths:3, leadMonths:2, lockYears:5,
   coloMW:2, coloRate:220, coloLeaseYears:10, coloEsc:0.025,
   rentalDecline:0.12, utilStart:0.45, utilSteady:0.85, utilRamp:6,
-  powerKW:15, pue:1.45, warrantyPct:0.05, otherPct:0.025, residualPct:0.20, tax:0.15, saudiPct:1.00,
+  powerKW:15, pue:1.45, warrantyPct:0.05, otherPct:0.025, residualPct:0.20, tax:0.15, saudiPct:1.00, occupancy:0.90,
   gaAnnual:3340000, gaInfl:0.08,
   facilityPerMW:9000000, facilityLife:20, equipLife:5,
   siteRentPerMW:150000, coloPerKWMo:200,
@@ -333,7 +338,7 @@ const PRODUCTS=[
    ov:{coloPerKWMo:200}},
   {id:'datahall', name:'Data Hall / MW', sub:'self-built AI DC leased out by the MW — PropCo landlord, no GPUs',
    tog:{facility:true, colo:true, debt:true}, gpu:false,
-   ov:{coloMW:10, coloRate:180}},
+   ov:{coloMW:10, coloRate:180, years:10}},
   {id:'colo', name:'Colocation / Rack', sub:'build & lease racks to tenants — merchant colo',
    tog:{facility:true, colo:true, debt:true}, gpu:false,
    ov:{coloMW:8}},
@@ -403,6 +408,7 @@ function compute(p,tog){
   const useWC=tog.wc, useExit=tog.exit;
   const useColo=tog.colo&&useFac;
   const useGpu=tog._gpu!==false;   // false for Data Hall / Colo products (PropCo only)
+  const occ=useGpu?1:(p.occupancy!=null?p.occupancy:1); // PropCo lease-up / occupancy
   const gpuMW=useGpu?target*p.powerKW/1000:0;
   const coloMW=useGpu?(useColo?p.coloMW:0):p.coloMW;  // GPU-off: colo is the whole facility
   const mwIT=gpuMW+coloMW;
@@ -438,7 +444,7 @@ function compute(p,tog){
     bill[m]=useGpu?online[m]*gpus*H*util[m]:0;
     revG[m]=bill[m]*price[m];
     revGm[m]=bill[m]*p.rental*Math.pow(1-decline,(m-1)/12);
-    revC[m]=useColo?coloMW*1000*p.coloRate*(online[m]/target)*Math.pow(1+p.coloEsc,Math.floor((m-1)/12)):0;
+    revC[m]=useColo?coloMW*1000*p.coloRate*(online[m]/target)*Math.pow(1+p.coloEsc,Math.floor((m-1)/12))*occ:0;
     rev[m]=revG[m]+revC[m];
     elec[m]=online[m]*p.powerKW*p.pue*H*p.elec;
     warr[m]=(cumS[m]+cumN[m])*p.warrantyPct/12;
@@ -541,7 +547,7 @@ function compute(p,tog){
     unitPrice=p.rental; unitStr='/GPU-hr'; rentMo=p.rental*H*p.utilSteady;
   } else {
     // PropCo (Data Hall / Colo): unit economics per kW of leasable capacity per month
-    const kW=Math.max(1,coloMW*1000);
+    const kW=Math.max(1,coloMW*1000*occ);
     cb={depr:(facTotal/(p.facilityLife*12))/kW, net:0, warr:0, facility:0,
         rent:(coloMW*p.siteRentPerMW/12)/kW,
         elec:0,
@@ -1001,11 +1007,19 @@ function setProduct(id){
     const drv=el.closest('.drv'); if(drv)drv.style.display=prod.gpu?'':'none';
   });
   const leaseRow=document.getElementById('leaseRow'); if(leaseRow)leaseRow.style.display=prod.gpu?'none':'';
+  const occRow=document.getElementById('occRow'); if(occRow)occRow.style.display=prod.gpu?'none':'';
   syncInputs(); renderProdBar(); renderModelBar();
   setIdcMode(T.facility);
   render();
 }
 /* push S back into all visible input widgets */
+function bindOcc(){
+  const n=document.getElementById('occupancy'),r=document.getElementById('occupancy_r');
+  if(!n)return;
+  n.value=Math.round(S.occupancy*100); r.value=Math.round(S.occupancy*100);
+  n.oninput=()=>{let v=parseFloat(n.value);if(isNaN(v))v=0;S.occupancy=v/100;r.value=v;render();};
+  r.oninput=()=>{S.occupancy=parseFloat(r.value)/100;n.value=r.value;render();};
+}
 function bindLease(){
   const n=document.getElementById('coloRate'),r=document.getElementById('coloRate_r');
   if(!n)return;
@@ -1022,6 +1036,8 @@ function syncInputs(){
   if(cp){cp.value=S.coloPerKWMo;} if(cpr){cpr.value=S.coloPerKWMo;}
   const lr=document.getElementById('coloRate'),lrr=document.getElementById('coloRate_r');
   if(lr){lr.value=S.coloRate;} if(lrr){lrr.value=S.coloRate;}
+  const oc=document.getElementById('occupancy'),ocr=document.getElementById('occupancy_r');
+  if(oc){oc.value=Math.round(S.occupancy*100);} if(ocr){ocr.value=Math.round(S.occupancy*100);}
   buildGroup('body_rev',F_REV);buildGroup('body_cost',F_COST);buildGroup('body_fin',F_FIN);
 }
 
@@ -1029,6 +1045,7 @@ renderProdBar();
 renderModelBar();
 PRIM.forEach(bindPrimary);
 bindLease();
+bindOcc();
 bindGpuCount();
 bindColo();
 bindToggles();
