@@ -242,6 +242,11 @@
           <div class="val"><input type="number" id="rental" step="0.10"><span class="unit">$ / GPU-hr</span></div></div>
         <input type="range" id="rental_r" min="0.5" max="12" step="0.1">
       </div>
+      <div class="drv" id="leaseRow" style="display:none">
+        <div class="row"><label>Lease rate — to tenants<span class="hint">per kW committed / month</span><span class="ttip" data-tip="Monthly lease rate charged to tenants per kW of committed IT capacity, excl. metered power (tenants pay their own electricity). Market retail $150-215/kW/mo. Escalates yearly by the colo escalation rate.">ⓘ</span></label>
+          <div class="val"><input type="number" id="coloRate" step="10"><span class="unit">$ / kW·mo</span></div></div>
+        <input type="range" id="coloRate_r" min="80" max="400" step="10">
+      </div>
       <div class="drv">
         <div class="row rowstack"><label>IDC strategy<span class="hint">own-build capex vs lease colocation</span></label>
           <div class="modeseg"><button id="mode_build" class="modebtn" onclick="setIdcMode(true)">Own-build</button><button id="mode_lease" class="modebtn" onclick="setIdcMode(false)">Lease / colocation</button></div>
@@ -995,11 +1000,19 @@ function setProduct(id){
     const el=document.getElementById(k); if(!el)return;
     const drv=el.closest('.drv'); if(drv)drv.style.display=prod.gpu?'':'none';
   });
+  const leaseRow=document.getElementById('leaseRow'); if(leaseRow)leaseRow.style.display=prod.gpu?'none':'';
   syncInputs(); renderProdBar(); renderModelBar();
   setIdcMode(T.facility);
   render();
 }
 /* push S back into all visible input widgets */
+function bindLease(){
+  const n=document.getElementById('coloRate'),r=document.getElementById('coloRate_r');
+  if(!n)return;
+  n.value=S.coloRate; r.value=S.coloRate;
+  n.oninput=()=>{let v=parseFloat(n.value);if(isNaN(v))v=0;S.coloRate=v;r.value=v;buildGroup('body_rev',F_REV);render();};
+  r.oninput=()=>{S.coloRate=parseFloat(r.value);n.value=S.coloRate;buildGroup('body_rev',F_REV);render();};
+}
 function syncInputs(){
   PRIM.forEach(([k,scale])=>{const sc=scale||1;const n=document.getElementById(k),r=document.getElementById(k+'_r');
     if(n){n.value=+(S[k]/sc).toFixed(4);} if(r){r.value=S[k]/sc;}});
@@ -1007,12 +1020,15 @@ function syncInputs(){
   if(gc){gc.value=S.servers*S.gpus;} if(gcr){gcr.value=S.servers*S.gpus;}
   const cp=document.getElementById('coloPerKWMo'),cpr=document.getElementById('coloPerKWMo_r');
   if(cp){cp.value=S.coloPerKWMo;} if(cpr){cpr.value=S.coloPerKWMo;}
+  const lr=document.getElementById('coloRate'),lrr=document.getElementById('coloRate_r');
+  if(lr){lr.value=S.coloRate;} if(lrr){lrr.value=S.coloRate;}
   buildGroup('body_rev',F_REV);buildGroup('body_cost',F_COST);buildGroup('body_fin',F_FIN);
 }
 
 renderProdBar();
 renderModelBar();
 PRIM.forEach(bindPrimary);
+bindLease();
 bindGpuCount();
 bindColo();
 bindToggles();
