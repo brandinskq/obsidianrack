@@ -327,7 +327,7 @@ const GPU_MODELS=[
   {id:'gb300', name:'GB300 NVL72', gpus:72, power:140,  cost:3850000, liquid:true,  unit:'rack', rental:5.60},
 ];
 let GPU='b300'; // current model id
-let GRADE=''; // current AI DC grade ('' = custom)
+let GRADE='A'; // current AI DC grade (default A)
 
 /* ═══════════════ product definitions ═══════════════ */
 /* each product = a switch preset + default overrides. Engine unchanged. */
@@ -1026,7 +1026,8 @@ function setProduct(id){
   });
   const leaseRow=document.getElementById('leaseRow'); if(leaseRow)leaseRow.style.display=prod.gpu?'none':'';
   const occRow=document.getElementById('occRow'); if(occRow)occRow.style.display=prod.gpu?'none':'';
-  GRADE='';
+  GRADE = prod.gpu ? '' : 'A';
+  const g0=DC_GRADES[GRADE]; if(g0){S.facilityPerMW=g0.facilityPerMW; S.pue=g0.pue; S.coloRate=g0.coloRate; S.rackKW=g0.rackKW;}
   syncInputs(); renderProdBar(); renderModelBar(); renderGradeBar();
   setIdcMode(T.facility);
   render();
