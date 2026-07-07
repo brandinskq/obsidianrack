@@ -242,6 +242,15 @@
           <div class="val"><input type="number" id="rental" step="0.10"><span class="unit">$ / GPU-hr</span></div></div>
         <input type="range" id="rental_r" min="0.5" max="12" step="0.1">
       </div>
+      <div class="drv" id="gradeRow" style="display:none">
+        <div class="row rowstack"><label>AI DC grade<span class="hint">applies typical $/MW · PUE · lease · density</span><span class="ttip" data-tip="Preset AI data-centre design grades. A = inference / low-density (air or rear-door). B = training, liquid-cooled (GB200 / NVL72 class). C = frontier AI factory (GB300 / Vera Rubin, direct liquid / immersion). Selecting a grade applies typical build cost per MW, PUE, reference lease rate and rack density — fine-tune each afterwards.">ⓘ</span></label>
+          <select id="dcGrade" style="width:100%">
+            <option value="">— custom —</option>
+            <option value="A">A · Inference / low-density · ~30 kW/rack</option>
+            <option value="B">B · Training · liquid-cooled · ~100 kW/rack</option>
+            <option value="C">C · Frontier AI factory · ~200 kW/rack</option>
+          </select></div>
+      </div>
       <div class="drv" id="leaseRow" style="display:none">
         <div class="row"><label>Lease rate — to tenants<span class="hint">per kW committed / month</span><span class="ttip" data-tip="Monthly lease rate charged to tenants per kW of committed IT capacity, excl. metered power (tenants pay their own electricity). Market retail $150-215/kW/mo. Escalates yearly by the colo escalation rate.">ⓘ</span></label>
           <div class="val"><input type="number" id="coloRate" step="10"><span class="unit">$ / kW·mo</span></div></div>
@@ -306,7 +315,7 @@ const DEF={
   servers:512, gpus:8, deployMonths:3, leadMonths:2, lockYears:5,
   coloMW:2, coloRate:220, coloLeaseYears:10, coloEsc:0.025,
   rentalDecline:0.12, utilStart:0.45, utilSteady:0.85, utilRamp:6,
-  powerKW:15, pue:1.45, warrantyPct:0.05, otherPct:0.025, residualPct:0.20, tax:0.15, saudiPct:1.00, occupancy:0.90,
+  powerKW:15, pue:1.45, warrantyPct:0.05, otherPct:0.025, residualPct:0.20, tax:0.15, saudiPct:1.00, occupancy:0.90, rackKW:0,
   gaAnnual:3340000, gaInfl:0.08,
   facilityPerMW:9000000, facilityLife:20, equipLife:5,
   siteRentPerMW:150000, coloPerKWMo:200,
@@ -346,6 +355,12 @@ const PRODUCTS=[
 let PROD='ownbuild';
 /* keys any product preset overrides — reset these to DEF on product switch so a prior preset (e.g. GPU-aaS util 75%) doesn't leak into the next */
 const OV_KEYS=[...new Set(PRODUCTS.flatMap(p=>Object.keys(p.ov||{})))];
+/* AI DC design grades — applied in PropCo (Data Hall / Colo) modes */
+const DC_GRADES={
+  A:{facilityPerMW:10e6,pue:1.35,coloRate:210,rackKW:30},
+  B:{facilityPerMW:13e6,pue:1.22,coloRate:300,rackKW:100},
+  C:{facilityPerMW:17e6,pue:1.18,coloRate:420,rackKW:200}
+};
 
 const F_REV=[
   {k:'gpus',gpuOnly:true,label:'GPUs per server',unit:'#',step:1,info:'GPUs per node. HGX/DGX B300 is 8. Sets GPU-count rounding and per-node power.'},
@@ -744,7 +759,7 @@ function render(){
 
   document.getElementById('tape').innerHTML= o.useGpu?
     `<b class="num">${(S.servers*S.gpus).toLocaleString()}</b> GPUs @ <b class="num cy">${money(S.serverPrice)}</b>/node · power <b class="num am">$${S.elec.toFixed(3)}/kWh</b> · renting <b class="num">$${S.rental.toFixed(2)}/GPU-hr</b>${(T.lock&&S.lockYears>0)?` <span style="color:var(--pass)">locked ${S.lockYears}yr</span>${T.decline?` then spot (−${(S.rentalDecline*100).toFixed(0)}%/yr)`:''}`:(T.decline?` <span>spot, eroding ${(S.rentalDecline*100).toFixed(0)}%/yr</span>`:'')} · <b class="num">${S.years}-yr</b> hold${(T.colo&&T.facility)?` · colo <b class="num am">${S.coloMW}MW @ $${S.coloRate}/kW</b>`:''}${T.debt?` · <b class="num">${(S.debtPct*100).toFixed(0)}%</b> debt`:' · all-equity'}`
-    : `<b class="num">${S.coloMW}</b> MW data hall · dev <b class="num cy">${money(S.facilityPerMW)}</b>/MW · lease <b class="num am">$${S.coloRate}/kW/mo</b>${(T.colo&&S.coloEsc>0)?` +${(S.coloEsc*100).toFixed(1)}%/yr`:''} · <b class="num">${S.years}-yr</b> hold${T.debt?` · <b class="num">${(S.debtPct*100).toFixed(0)}%</b> debt`:' · all-equity'}`;
+    : `<b class="num">${S.coloMW}</b> MW data hall · dev <b class="num cy">${money(S.facilityPerMW)}</b>/MW · lease <b class="num am">$${S.coloRate}/kW/mo</b>${(T.colo&&S.coloEsc>0)?` +${(S.coloEsc*100).toFixed(1)}%/yr`:''} · PUE <b class="num">${S.pue.toFixed(2)}</b>${S.rackKW>0?` · ~<b class="num">${S.rackKW}</b>kW/rack`:''} · <b class="num">${S.years}-yr</b> hold${T.debt?` · <b class="num">${(S.debtPct*100).toFixed(0)}%</b> debt`:' · all-equity'}`;
 
   document.getElementById('out').innerHTML=`
   ${verdict(o)}
@@ -1010,11 +1025,17 @@ function setProduct(id){
   });
   const leaseRow=document.getElementById('leaseRow'); if(leaseRow)leaseRow.style.display=prod.gpu?'none':'';
   const occRow=document.getElementById('occRow'); if(occRow)occRow.style.display=prod.gpu?'none':'';
+  const gradeRow=document.getElementById('gradeRow'); if(gradeRow)gradeRow.style.display=prod.gpu?'none':'';
+  const gsel=document.getElementById('dcGrade'); if(gsel)gsel.value='';
   syncInputs(); renderProdBar(); renderModelBar();
   setIdcMode(T.facility);
   render();
 }
 /* push S back into all visible input widgets */
+function bindGrade(){
+  const sel=document.getElementById('dcGrade'); if(!sel)return;
+  sel.onchange=()=>{const g=DC_GRADES[sel.value]; if(!g)return; S.facilityPerMW=g.facilityPerMW; S.pue=g.pue; S.coloRate=g.coloRate; S.rackKW=g.rackKW; syncInputs(); render();};
+}
 function bindOcc(){
   const n=document.getElementById('occupancy'),r=document.getElementById('occupancy_r');
   if(!n)return;
@@ -1048,6 +1069,7 @@ renderModelBar();
 PRIM.forEach(bindPrimary);
 bindLease();
 bindOcc();
+bindGrade();
 bindGpuCount();
 bindColo();
 bindToggles();
