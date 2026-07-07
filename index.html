@@ -337,7 +337,7 @@ const PRODUCTS=[
    tog:{facility:false, colo:false, debt:false}, gpu:true,
    ov:{coloPerKWMo:200}},
   {id:'datahall', name:'Data Hall / MW', sub:'self-built AI DC leased out by the MW — PropCo landlord, no GPUs',
-   tog:{facility:true, colo:true, debt:true}, gpu:false,
+   tog:{facility:true, colo:true, debt:false}, gpu:false,
    ov:{coloMW:10, coloRate:180, years:10}},
   {id:'colo', name:'Colocation / Rack', sub:'build & lease racks to tenants — merchant colo',
    tog:{facility:true, colo:true, debt:true}, gpu:false,
@@ -348,30 +348,30 @@ let PROD='ownbuild';
 const OV_KEYS=[...new Set(PRODUCTS.flatMap(p=>Object.keys(p.ov||{})))];
 
 const F_REV=[
-  {k:'gpus',label:'GPUs per server',unit:'#',step:1,info:'GPUs per node. HGX/DGX B300 is 8. Sets GPU-count rounding and per-node power.'},
+  {k:'gpus',gpuOnly:true,label:'GPUs per server',unit:'#',step:1,info:'GPUs per node. HGX/DGX B300 is 8. Sets GPU-count rounding and per-node power.'},
   {k:'deployMonths',label:'Deployment period',unit:'months',step:1,tog:'phase',info:'Months to install all GPUs (staged capex). Capacity comes online gradually, not day one.'},
   {k:'leadMonths',label:'Build lead time',unit:'months (capex→rev)',step:1,tog:'phase',info:'Commissioning gap between spending capex and earning revenue — money out, debt clock running, no income. The deepest part of the Year-1 cash hole.'},
-  {k:'lockYears',label:'Contract lock period',unit:'years',step:1,tog:'lock',info:'Years the rental price is contractually fixed. The single most important bankability lever — locked revenue is what makes the debt serviceable.'},
-  {k:'rentalDecline',label:'Market erosion / yr',unit:'%',step:1,pct:true,tog:'decline',info:'Annual decline in market GPU-hour price as newer silicon ships. Applies after the lock period expires. H100 fell ~40%/yr post-peak.'},
-  {k:'utilStart',label:'Utilization — start',unit:'%',step:1,pct:true,tog:'util',info:'Billed hours ÷ available hours in month 1. New clusters ramp from partial fill; 45% reflects early lease-up.'},
-  {k:'utilSteady',label:'Utilization — steady',unit:'%',step:1,pct:true,info:'Mature utilisation once ramped. 85% is strong for contracted capacity; hyperscalers assume 70-90%.'},
-  {k:'utilRamp',label:'Utilization ramp',unit:'months',step:1,tog:'util',info:'Months to climb from start to steady utilisation as customers onboard.'},
+  {k:'lockYears',gpuOnly:true,label:'Contract lock period',unit:'years',step:1,tog:'lock',info:'Years the rental price is contractually fixed. The single most important bankability lever — locked revenue is what makes the debt serviceable.'},
+  {k:'rentalDecline',gpuOnly:true,label:'Market erosion / yr',unit:'%',step:1,pct:true,tog:'decline',info:'Annual decline in market GPU-hour price as newer silicon ships. Applies after the lock period expires. H100 fell ~40%/yr post-peak.'},
+  {k:'utilStart',gpuOnly:true,label:'Utilization — start',unit:'%',step:1,pct:true,tog:'util',info:'Billed hours ÷ available hours in month 1. New clusters ramp from partial fill; 45% reflects early lease-up.'},
+  {k:'utilSteady',gpuOnly:true,label:'Utilization — steady',unit:'%',step:1,pct:true,info:'Mature utilisation once ramped. 85% is strong for contracted capacity; hyperscalers assume 70-90%.'},
+  {k:'utilRamp',gpuOnly:true,label:'Utilization ramp',unit:'months',step:1,tog:'util',info:'Months to climb from start to steady utilisation as customers onboard.'},
   {k:'arDays',label:'Receivable days (AR)',unit:'days',step:5,tog:'wc',info:'Days between billing and cash collection. Working-capital drag funded by equity until it unwinds.'},
   {k:'coloMW',label:'Colocation capacity',unit:'MW IT',step:0.5,tog:'colo',info:'Facility capacity leased to third-party colo tenants (own-build only). A stable rental layer beside the GPU business.'},
-  {k:'coloRate',label:'Colo rate (excl. power)',unit:'$/kW/mo',step:10,tog:'colo',info:'Rack + power-capacity rent to colo tenants, excl. metered power (tenants pay their own electricity). Market retail $150-215/kW/mo.'},
+  {k:'coloRate',coreInPropco:true,label:'Colo rate (excl. power)',unit:'$/kW/mo',step:10,tog:'colo',info:'Rack + power-capacity rent to colo tenants, excl. metered power (tenants pay their own electricity). Market retail $150-215/kW/mo.'},
   {k:'coloLeaseYears',label:'Colo lease term',unit:'years',step:1,tog:'colo',info:'Colo tenant lease length. 10yr+ is standard and lets the remaining lease be valued as a resale asset at exit.'},
   {k:'coloEsc',label:'Colo rate escalation',unit:'% / yr',step:0.5,pct:true,tog:'colo',info:'Annual rent bump written into long colo leases. 2-3%/yr typical.'},
 ];
 const F_COST=[
-  {k:'pue',label:'PUE',unit:'x',step:0.05,info:'Power Usage Effectiveness — total facility power ÷ IT power. Air-cooled ~1.4-1.5; liquid-cooled ~1.2-1.3. Multiplies the electricity bill.'},
-  {k:'equipLife',label:'Equipment useful life',unit:'yrs',step:1,info:'Straight-line depreciation life of GPU servers & network gear, independent of the hold period. 5yr is standard for AI hardware.'},
+  {k:'pue',gpuOnly:true,label:'PUE',unit:'x',step:0.05,info:'Power Usage Effectiveness — total facility power ÷ IT power. Air-cooled ~1.4-1.5; liquid-cooled ~1.2-1.3. Multiplies the electricity bill.'},
+  {k:'equipLife',gpuOnly:true,label:'Equipment useful life',unit:'yrs',step:1,info:'Straight-line depreciation life of GPU servers & network gear, independent of the hold period. 5yr is standard for AI hardware.'},
   {k:'facilityLife',label:'Facility useful life',unit:'yrs',step:1,tog:'facility',info:'Straight-line depreciation life of the building & M&E (own-build only). Traditional DC infrastructure runs 20yr.'},
   {k:'siteRentPerMW',label:'Ground rent (own-build)',unit:'$k/MW IT/yr',step:10,scale:1e3,tog:'facility',info:'Annual ground lease for the land under an owned facility (own-build only). Gulf industrial land is cheap — a minor cost line here.'},
-  {k:'warrantyPct',label:'Warranty & support',unit:'% capex/yr',step:0.5,pct:true,info:'OEM/vendor hardware support & spares, as % of server+network capex per year. 5% ≈ enterprise SLA; 3.5-4% self-maintenance.'},
+  {k:'warrantyPct',gpuOnly:true,label:'Warranty & support',unit:'% capex/yr',step:0.5,pct:true,info:'OEM/vendor hardware support & spares, as % of server+network capex per year. 5% ≈ enterprise SLA; 3.5-4% self-maintenance.'},
   {k:'otherPct',label:'Site staff & O&M',unit:'% capex/yr',step:0.5,pct:true,info:'On-site engineers, NOC, facility O&M, as % of total capex per year. 2.5% aligns with itemised staffing at comparable DCs. Escalates annually at the G&A inflation rate (salary growth).'},
   {k:'gaAnnual',label:'Corporate G&A',unit:'$M / yr',step:0.25,scale:1e6,tog:'ga',info:'Corporate overhead — management, legal, finance, sales, HR. Fixed regardless of scale, so it dilutes as GPU count grows.'},
   {k:'gaInfl',label:'G&A inflation',unit:'% / yr',step:0.5,pct:true,tog:'ga',info:'Annual growth in G&A, driven mainly by salary escalation.'},
-  {k:'residualPct',label:'Residual value (HW)',unit:'% at exit',step:1,pct:true,info:'Server resale value at exit, as % of purchase price. H100 held 35-50% at 3yr; 20% is a conservative floor for a 5yr-old B300.'},
+  {k:'residualPct',gpuOnly:true,label:'Residual value (HW)',unit:'% at exit',step:1,pct:true,info:'Server resale value at exit, as % of purchase price. H100 held 35-50% at 3yr; 20% is a conservative floor for a 5yr-old B300.'},
   {k:'saudiPct',label:'Saudi / GCC ownership',unit:'%',step:5,pct:true,info:'Share of equity held by Saudi/GCC owners. Effective tax = ownership × 2.5% (Zakat) + (1−ownership) × 20% (foreign CIT). Zakat is technically levied on the Zakat base (net worth), approximated here on profit. 100% Saudi ⇒ 2.5% effective; 0% ⇒ 20%.'},
 ];
 const F_FIN=[
@@ -775,7 +775,7 @@ function render(){
     ${kpi('Avg EBITDA margin',pctf(o.avgEbMargin),'over hold')}
   </div>
   <div class="grid">
-    ${kpi('Total CAPEX',money(o.totalCapex),o.useFac?`servers + network + facility`:'servers + network')}
+    ${kpi('Total CAPEX',money(o.totalCapex),o.useGpu?(o.useFac?`servers + network + facility`:'servers + network'):'facility build-out')}
     ${kpi('Facility CAPEX',o.useFac?money(o.facTotal):'$0',o.useFac?`${o.mwIT.toFixed(2)} MW IT${o.useColo?` (GPU ${o.gpuMW.toFixed(2)} + colo ${o.coloMW.toFixed(1)})`:''} · exit ${money(o.facExit)}`:'facility off',o.useFac?'var(--power)':'var(--dim)')}
     ${o.useColo?kpi('Colo revenue / yr',money(o.yrs[Math.min(1,o.yrs.length-1)].revC),(o.totRev>0?(o.yrs.reduce((s,y)=>s+y.revC,0)/o.totRev*100).toFixed(0)+'% of total revenue':''),'var(--power)'):''}
     ${kpi('Debt',T.debt?money(o.totalDebt):'$0',T.debt?(S.debtPct*100).toFixed(0)+'% of capex · '+S.debtTenor+'mo':'all equity')}
@@ -940,6 +940,8 @@ function bindPrimary([k,scale]){
 }
 function buildGroup(id,fields){
   const b=document.getElementById(id);
+  const _isGpu=(PRODUCTS.find(p=>p.id===PROD)||{}).gpu!==false;
+  fields=fields.filter(f=>!((f.gpuOnly||f.coreInPropco)&&!_isGpu));
   const lbl=f=>`<span class="flabel">${f.label}${f.info?`<span class="ttip" data-tip="${f.info.replace(/"/g,'&quot;')}">ⓘ</span>`:''}</span>`;
   b.innerHTML=fields.map(f=>{
     if(f.options){
