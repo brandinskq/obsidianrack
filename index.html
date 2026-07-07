@@ -206,6 +206,7 @@
 
 <div class="prodbar" id="prodbar"></div>
 <div class="modelbar" id="modelbar"></div>
+<div class="modelbar hidden" id="gradeBar"></div>
 
 <div class="wrap">
   <!-- ───────── rail ───────── -->
@@ -241,15 +242,6 @@
         <div class="row"><label>GPU rental price<span class="hint" id="rentNote">start price</span><span class="ttip" data-tip="GPU-hour rental price (start). B300 spot ~$2.45, dedicated ~$6.80, managed $12-18. $4.40 on a 5yr lock is a defensible contracted rate.">ⓘ</span></label>
           <div class="val"><input type="number" id="rental" step="0.10"><span class="unit">$ / GPU-hr</span></div></div>
         <input type="range" id="rental_r" min="0.5" max="12" step="0.1">
-      </div>
-      <div class="drv" id="gradeRow" style="display:none">
-        <div class="row rowstack"><label>AI DC grade<span class="hint">applies typical $/MW · PUE · lease · density</span><span class="ttip" data-tip="Preset AI data-centre design grades. A = inference / low-density (air or rear-door). B = training, liquid-cooled (GB200 / NVL72 class). C = frontier AI factory (GB300 / Vera Rubin, direct liquid / immersion). Selecting a grade applies typical build cost per MW, PUE, reference lease rate and rack density — fine-tune each afterwards.">ⓘ</span></label>
-          <select id="dcGrade" style="width:100%">
-            <option value="">— custom —</option>
-            <option value="A">A · Inference / low-density · ~30 kW/rack</option>
-            <option value="B">B · Training · liquid-cooled · ~100 kW/rack</option>
-            <option value="C">C · Frontier AI factory · ~200 kW/rack</option>
-          </select></div>
       </div>
       <div class="drv" id="leaseRow" style="display:none">
         <div class="row"><label>Lease rate — to tenants<span class="hint">per kW committed / month</span><span class="ttip" data-tip="Monthly lease rate charged to tenants per kW of committed IT capacity, excl. metered power (tenants pay their own electricity). Market retail $150-215/kW/mo. Escalates yearly by the colo escalation rate.">ⓘ</span></label>
@@ -335,6 +327,7 @@ const GPU_MODELS=[
   {id:'gb300', name:'GB300 NVL72', gpus:72, power:140,  cost:3850000, liquid:true,  unit:'rack', rental:5.60},
 ];
 let GPU='b300'; // current model id
+let GRADE=''; // current AI DC grade ('' = custom)
 
 /* ═══════════════ product definitions ═══════════════ */
 /* each product = a switch preset + default overrides. Engine unchanged. */
@@ -361,6 +354,13 @@ const DC_GRADES={
   B:{facilityPerMW:13e6,pue:1.22,coloRate:300,rackKW:100},
   C:{facilityPerMW:17e6,pue:1.18,coloRate:420,rackKW:200}
 };
+/* ordered grade options for the GPU-style selector bar */
+const DC_GRADE_LIST=[
+  {k:'',name:'— custom —',sub:''},
+  {k:'A',name:'A',sub:'Inference / low-density · ~30 kW/rack'},
+  {k:'B',name:'B',sub:'Training · liquid-cooled · ~100 kW/rack'},
+  {k:'C',name:'C',sub:'Frontier AI factory · ~200 kW/rack'}
+];
 
 const F_REV=[
   {k:'gpus',gpuOnly:true,label:'GPUs per server',unit:'#',step:1,info:'GPUs per node. HGX/DGX B300 is 8. Sets GPU-count rounding and per-node power.'},
@@ -1025,16 +1025,26 @@ function setProduct(id){
   });
   const leaseRow=document.getElementById('leaseRow'); if(leaseRow)leaseRow.style.display=prod.gpu?'none':'';
   const occRow=document.getElementById('occRow'); if(occRow)occRow.style.display=prod.gpu?'none':'';
-  const gradeRow=document.getElementById('gradeRow'); if(gradeRow)gradeRow.style.display=prod.gpu?'none':'';
-  const gsel=document.getElementById('dcGrade'); if(gsel)gsel.value='';
-  syncInputs(); renderProdBar(); renderModelBar();
+  GRADE='';
+  syncInputs(); renderProdBar(); renderModelBar(); renderGradeBar();
   setIdcMode(T.facility);
   render();
 }
 /* push S back into all visible input widgets */
-function bindGrade(){
-  const sel=document.getElementById('dcGrade'); if(!sel)return;
-  sel.onchange=()=>{const g=DC_GRADES[sel.value]; if(!g)return; S.facilityPerMW=g.facilityPerMW; S.pue=g.pue; S.coloRate=g.coloRate; S.rackKW=g.rackKW; syncInputs(); render();};
+function renderGradeBar(){
+  const bar=document.getElementById('gradeBar'); if(!bar)return;
+  const prod=PRODUCTS.find(p=>p.id===PROD);
+  if(prod.gpu){bar.classList.add('hidden');return;}
+  bar.classList.remove('hidden');
+  bar.innerHTML='<span class="mlabel">AI DC grade</span>'+DC_GRADE_LIST.map(g=>
+    `<button class="modelbtn ${g.k===GRADE?'on':''}" onclick="setGrade('${g.k}')">
+      ${g.name}${g.sub?` <span class="mp">${g.sub}</span>`:''}</button>`).join('');
+}
+function setGrade(k){
+  GRADE=k;
+  const g=DC_GRADES[k];
+  if(g){S.facilityPerMW=g.facilityPerMW; S.pue=g.pue; S.coloRate=g.coloRate; S.rackKW=g.rackKW;}
+  syncInputs(); renderGradeBar(); render();
 }
 function bindOcc(){
   const n=document.getElementById('occupancy'),r=document.getElementById('occupancy_r');
@@ -1069,7 +1079,7 @@ renderModelBar();
 PRIM.forEach(bindPrimary);
 bindLease();
 bindOcc();
-bindGrade();
+renderGradeBar();
 bindGpuCount();
 bindColo();
 bindToggles();
