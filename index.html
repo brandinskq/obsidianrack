@@ -991,7 +991,7 @@ function setProduct(id){
   OV_KEYS.forEach(k=>{if(k in DEF)S[k]=DEF[k];});
   Object.assign(S, prod.ov);
   // show/hide GPU-specific core inputs for PropCo-only products
-  ['serverPrice','gpuCount','netPct','powerKW'].forEach(k=>{
+  ['serverPrice','gpuCount','netPct','powerKW','rental','elec'].forEach(k=>{
     const el=document.getElementById(k); if(!el)return;
     const drv=el.closest('.drv'); if(drv)drv.style.display=prod.gpu?'':'none';
   });
