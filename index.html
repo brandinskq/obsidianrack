@@ -380,12 +380,15 @@ let S={...DEF, modes:DEF.modes.map(m=>({...m}))}, T={...TOG};
 
 /* ═══════════════ GPU model catalogue (turnkey landed prices, mid-2026) ═══════════════ */
 /* nodeCost = full system: GPUs + CPU/mem/storage + chassis + liquid cooling + integration */
+// net = external network capex as % of node cost. 8-GPU nodes need add-on InfiniBand/Spectrum-X (12%).
+// GB300 NVL72 is a rack-scale system whose price already bundles the in-rack NVLink/NVSwitch fabric,
+// so only the inter-rack/cluster backbone is extra (~3%).
 const GPU_MODELS=[
-  {id:'h100',  name:'H100 SXM',    gpus:8,  power:10.2, cost:280000,  liquid:false, unit:'node', rental:2.00},
-  {id:'h200',  name:'H200',        gpus:8,  power:10.4, cost:320000,  liquid:false, unit:'node', rental:2.50},
-  {id:'b200',  name:'B200',        gpus:8,  power:14.0, cost:420000,  liquid:false, unit:'node', rental:3.60},
-  {id:'b300',  name:'B300',        gpus:8,  power:15.0, cost:550000,  liquid:true,  unit:'node', rental:4.40},
-  {id:'gb300', name:'GB300 NVL72', gpus:72, power:140,  cost:3850000, liquid:true,  unit:'rack', rental:5.60},
+  {id:'h100',  name:'H100 SXM',    gpus:8,  power:10.2, cost:280000,  liquid:false, unit:'node', rental:2.00, net:0.12},
+  {id:'h200',  name:'H200',        gpus:8,  power:10.4, cost:320000,  liquid:false, unit:'node', rental:2.50, net:0.12},
+  {id:'b200',  name:'B200',        gpus:8,  power:14.0, cost:420000,  liquid:false, unit:'node', rental:3.60, net:0.12},
+  {id:'b300',  name:'B300',        gpus:8,  power:15.0, cost:550000,  liquid:true,  unit:'node', rental:4.40, net:0.12},
+  {id:'gb300', name:'GB300 NVL72', gpus:72, power:140,  cost:6300000, liquid:true,  unit:'rack', rental:10.50, net:0.03},
 ];
 let GPU='b300'; // current model id
 let GRADE='A'; // current AI DC grade (default A)
@@ -1105,6 +1108,8 @@ function setModel(id){
   GPU=id;
   S.gpus=m.gpus; S.powerKW=m.power; S.serverPrice=m.cost;
   if(m.rental!=null)S.rental=m.rental;
+  if(m.net!=null)S.netPct=m.net; // GB300 rack bundles NVLink → only inter-rack fabric is extra
+
   // liquid-cooled models drive facility cost & PUE
   if(m.liquid){S.facilityPerMW=12000000; S.pue=1.25;}
   else{S.facilityPerMW=9000000; S.pue=1.45;}
