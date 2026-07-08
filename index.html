@@ -160,6 +160,33 @@
   .switch input:checked+.sl{background:rgba(200,255,0,.16);border-color:var(--compute-dim)}
   .switch input:checked+.sl:before{transform:translateX(17px);background:var(--compute)}
   @media (max-width:900px){.rail{width:100%}}
+  /* ── mobile / small screens ───────────────── */
+  @media (max-width:640px){
+    body{padding:0 11px 22px}
+    .wrap{gap:12px;margin-top:12px}
+    .rail{min-width:0}
+    .main{min-width:0}
+    .tape{padding:12px 0 12px;gap:12px}
+    .wordmark{font-size:15px}
+    .online-badge{margin-left:8px}
+    .card{padding:12px 12px}
+    .grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+    .kpi{padding:11px 12px}
+    .kpi .v{font-size:19px}
+    .verdict{flex-direction:column}
+    .verdict .word{min-width:0;width:100%;border-right:none;border-bottom:1px solid var(--line)}
+    .test{min-width:118px}
+    .duo>.card{min-width:0}
+    .prodcard{min-width:0;flex:1 1 44%}
+    /* wide tables scroll horizontally instead of forcing the whole page to overflow */
+    .card table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap}
+    .card .modet{white-space:normal}
+    #modeTable{overflow-x:auto}
+  }
+  @media (max-width:380px){
+    .grid{grid-template-columns:1fr 1fr}
+    .prodcard{flex:1 1 100%}
+  }
   /* ── product selector ─────────────────────── */
   .prodbar{display:flex;gap:8px;flex-wrap:wrap;padding:16px 2px 6px}
   .prodcard{flex:1;min-width:150px;background:var(--surface);border:1px solid var(--line2);
@@ -836,10 +863,10 @@ function render(){
     const oC=compute(S,{...T,exit:true,exitcur:true});
     const act=(on)=>on?`background:rgba(125,211,252,.07);`:'';
     const a1=!T.exit, a2=T.exit&&!T.exitcur, a3=T.exit&&T.exitcur;
-    const cell=(on,label,irrv,sub,last)=>`<div style="flex:1;padding:9px 16px;${last?'':'border-right:1px solid var(--line);'}${act(on)}">
+    const cell=(on,label,irrv,sub,last)=>`<div style="flex:1 1 200px;padding:9px 16px;${last?'':'border-right:1px solid var(--line);'}${act(on)}">
         <span style="color:${on?'var(--power)':'var(--dim)'};font-size:9.5px;letter-spacing:.12em;text-transform:uppercase">${label}${on?' · active':''}</span><br>
         <span class="num" style="font-weight:700;${on?'color:var(--power)':''}">Equity IRR ${irrf(irrv)}</span> <span style="color:var(--muted)">· ${sub}</span></div>`;
-    return `<div style="display:flex;gap:0;border:1px solid var(--line);border-radius:3px;overflow:hidden;margin:-6px 0 14px;background:var(--surface);font-size:12px">
+    return `<div style="display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--line);border-radius:3px;overflow:hidden;margin:-6px 0 14px;background:var(--surface);font-size:12px">
       ${cell(a1,'Floor — liquidation',oF.eIRR,'proceeds '+money(oF.termProj))}
       ${cell(a2,'Re-contract at market',oM.eIRR,S.exitMult+'x EBITDA repriced to spot · EV '+money(oM.termProj))}
       ${cell(a3,'Re-contract at current price',oC.eIRR,S.exitMult+'x locked-rate EBITDA · EV '+money(oC.termProj),true)}
