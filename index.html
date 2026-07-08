@@ -251,7 +251,7 @@
         <input type="range" id="rental_r" min="0.5" max="12" step="0.1">
       </div>
       <div class="drv" id="taasRow" style="display:none">
-        <div class="row rowstack"><label>Token mix by modality<span class="hint">share · $/1M · GPU throughput</span><span class="ttip" data-tip="Tokens split into Text / Audio / Image / Video. Each has its own sell price per 1M tokens and GPU throughput (tokens/sec per GPU) — video & image burn far more GPU per token, so their throughput is much lower. All modalities share the same IDC + GPU fleet; the engine runs on a fleet-weighted blended $/GPU-hr.">ⓘ</span></label></div>
+        <div class="row rowstack"><label>Token mix by modality<span class="hint">share · $/1M · GPU throughput</span><span class="ttip" data-tip="Revenue split by modality, each billed the industry way: Text & Audio per 1M tokens with input/output split (Text anchored to GLM-5.2: $1.40 in / $4.40 out); Image per image (Seedream 4.5 ~$0.04); Video per second (Seedance 2.0 ~$0.14). Rate = billable output per GPU (tok/s, images/hr, video-sec/hr). All modalities share one IDC + GPU fleet; the engine runs on a fleet-weighted blended $/GPU-hr.">ⓘ</span></label></div>
         <div id="modeTable"></div>
       </div>
       <div class="drv" id="leaseRow" style="display:none">
@@ -324,16 +324,18 @@ const DEF={
   siteRentPerMW:150000, coloPerKWMo:200,
   arDays:45, feePct:0.01, exitMult:8,
   debtPct:0.60, debtRate:0.08, debtTenor:36, disc:0.12,
-  // Token-as-a-Service modality mix — each modality bills the way industry does:
-  //   Text/Audio: per 1M tokens, split input vs output (text defaults to GLM-5.2: $1.40 in / $4.40 out);
-  //   Image: per image; Video: per second. hasIO modalities also carry an input:output token ratio.
+  // Token-as-a-Service modality mix — each modality bills the way industry does, priced off named anchors:
+  //   Text: per 1M tokens, split in/out — GLM-5.2 ($1.40 in / $4.40 out).
+  //   Audio: per 1M tokens, split in/out (realtime audio token rates).
+  //   Image: per image — Seedream 4.5 ($0.04/img).  Video: per second — Seedance 2.0 (~$0.14/s).
+  //   hasIO modalities carry an input:output token ratio.
   //   rate = billable output units per GPU (tok/s for text/audio, images/hr for image, video-sec/hr for video).
   //   All share the same IDC+GPU fleet; each modality's revenue/GPU-hr blends into one effective $/GPU-hr.
   modes:[
     {k:'txt',name:'Text',  unit:'1M tok', hasIO:true,  mix:0.50, inPrice:1.40, outPrice:4.40,  ioRatio:3.0, rate:170},
     {k:'aud',name:'Audio', unit:'1M tok', hasIO:true,  mix:0.15, inPrice:2.50, outPrice:15.00, ioRatio:1.0, rate:85},
     {k:'img',name:'Image', unit:'image',  hasIO:false, mix:0.20, inPrice:0,    outPrice:0.04,  ioRatio:0,   rate:200},
-    {k:'vid',name:'Video', unit:'sec',    hasIO:false, mix:0.15, inPrice:0,    outPrice:0.10,  ioRatio:0,   rate:90},
+    {k:'vid',name:'Video', unit:'sec',    hasIO:false, mix:0.15, inPrice:0,    outPrice:0.14,  ioRatio:0,   rate:90},
   ],
 };
 function modeRevPerHr(m){ // one modality's revenue per GPU-hour, in its native billing unit
