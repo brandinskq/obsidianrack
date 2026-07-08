@@ -332,10 +332,10 @@ const DEF={
   //   rate = billable output units per GPU (tok/s for text/audio, images/hr for image, video-sec/hr for video).
   //   All share the same IDC+GPU fleet; each modality's revenue/GPU-hr blends into one effective $/GPU-hr.
   modes:[
-    {k:'txt',name:'Text',  unit:'1M tok', hasIO:true,  mix:0.50, inPrice:1.40, outPrice:4.40,  ioRatio:3.0, rate:170},
-    {k:'aud',name:'Audio', unit:'1M tok', hasIO:true,  mix:0.15, inPrice:2.50, outPrice:15.00, ioRatio:1.0, rate:85},
-    {k:'img',name:'Image', unit:'image',  hasIO:false, mix:0.20, inPrice:0,    outPrice:0.04,  ioRatio:0,   rate:200},
-    {k:'vid',name:'Video', unit:'sec',    hasIO:false, mix:0.15, inPrice:0,    outPrice:0.14,  ioRatio:0,   rate:90},
+    {k:'txt',name:'Text',  unit:'1M tok', hasIO:true,  mix:0.29, inPrice:1.40, outPrice:4.40,  ioRatio:3.0, rate:170},
+    {k:'aud',name:'Audio', unit:'1M tok', hasIO:true,  mix:0.09, inPrice:2.50, outPrice:15.00, ioRatio:1.0, rate:85},
+    {k:'img',name:'Image', unit:'image',  hasIO:false, mix:0.12, inPrice:0,    outPrice:0.04,  ioRatio:0,   rate:200},
+    {k:'vid',name:'Video', unit:'sec',    hasIO:false, mix:0.50, inPrice:0,    outPrice:0.14,  ioRatio:0,   rate:90},
   ],
 };
 function modeRevPerHr(m){ // one modality's revenue per GPU-hour, in its native billing unit
