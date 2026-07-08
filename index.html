@@ -402,10 +402,13 @@ const F_FIN=[
 /* ═══════════════ engine (validated) ═══════════════ */
 function irr(cf){
   const npv=r=>cf.reduce((s,c,i)=>s+c/Math.pow(1+r,i),0);
-  let lo=-0.9999,hi=8;
+  // cap the monthly-rate search at 100%/mo — anything above annualizes to economically
+  // meaningless (>400,000%) and is invariably a multiple-IRR / degenerate-cashflow artifact
+  let lo=-0.9999,hi=1;
   if(npv(lo)*npv(hi)>0) return null;
-  for(let k=0;k<220;k++){const m=(lo+hi)/2,v=npv(m); if(Math.abs(v)<1e-4)return m; if(npv(lo)*v<0)hi=m; else lo=m;}
-  return (lo+hi)/2;
+  let m=(lo+hi)/2;
+  for(let k=0;k<220;k++){m=(lo+hi)/2;const v=npv(m); if(Math.abs(v)<1e-4)break; if(npv(lo)*v<0)hi=m; else lo=m;}
+  return m>=1-1e-4?null:m; // root pinned at the ceiling ⇒ no meaningful IRR
 }
 function compute(p,tog){
   const H=730, N=Math.round(p.years*12), gpus=p.gpus;
@@ -687,21 +690,27 @@ function heatColor(v,lo,hi){
   return `rgb(${r},${g},${b})`;
 }
 function sensitivity(){
-  const rentMults=[0.6,0.8,1.0,1.2,1.4], utils=[0.6,0.7,0.8,0.9,0.95];
-  const levered=T.debt;
-  const grid=rentMults.map(rm=>utils.map(u=>{
-    const o=compute({...S, rental:S.rental*rm, utilSteady:u}, T);
+  const mults=[0.6,0.8,1.0,1.2,1.4], cols=[0.6,0.7,0.8,0.9,0.95];
+  const levered=T.debt, propco=T._gpu===false;
+  // GPU products flex on rental $/GPU-hr × steady utilization; PropCo/IDC on lease $/kW·mo × occupancy
+  const base=propco?S.coloRate:S.rental;
+  const grid=mults.map(rm=>cols.map(u=>{
+    const o=propco
+      ? compute({...S, coloRate:S.coloRate*rm, occupancy:u}, T)
+      : compute({...S, rental:S.rental*rm, utilSteady:u}, T);
     return levered?o.eIRR:o.pIRR;
   }));
   const flat=grid.flat().filter(v=>v!=null);
   const lo=Math.min(...flat), hi=Math.max(...flat);
   let html=`<table class="heat"><thead><tr><th>${levered?'Equity':'Project'} IRR</th>`+
-    utils.map(u=>`<th style="text-align:center">${(u*100).toFixed(0)}%</th>`).join('')+`</tr></thead><tbody>`;
-  rentMults.forEach((rm,i)=>{
-    html+=`<tr><td class="num" style="color:var(--muted)">$${(S.rental*rm).toFixed(2)}</td>`+
+    cols.map(u=>`<th style="text-align:center">${(u*100).toFixed(0)}%</th>`).join('')+`</tr></thead><tbody>`;
+  mults.forEach((rm,i)=>{
+    const rowLabel=propco?`$${(base*rm).toFixed(0)}`:`$${(base*rm).toFixed(2)}`;
+    html+=`<tr><td class="num" style="color:var(--muted)">${rowLabel}</td>`+
       grid[i].map(v=>`<td style="background:${heatColor(v,lo,hi)};color:#0f1216">${v==null?'n/a':(v*100).toFixed(0)+'%'}</td>`).join('')+`</tr>`;
   });
-  return html+`</tbody></table><div class="foot">rows: rental $/GPU-hr · columns: steady utilization · each cell reruns the full engine</div>`;
+  const foot=propco?'rows: IDC lease $/kW·mo · columns: occupancy':'rows: rental $/GPU-hr · columns: steady utilization';
+  return html+`</tbody></table><div class="foot">${foot} · each cell reruns the full engine</div>`;
 }
 function scenarios(){
   const defs={
