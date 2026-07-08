@@ -324,21 +324,27 @@ const DEF={
   siteRentPerMW:150000, coloPerKWMo:200,
   arDays:45, feePct:0.01, exitMult:8,
   debtPct:0.60, debtRate:0.08, debtTenor:36, disc:0.12,
-  // Token-as-a-Service modality mix. Each modality: share of fleet (mix), sell price $/1M tokens,
-  // and GPU throughput tok/s (video/image burn far more GPU per token → far lower throughput).
-  // Revenue & cost share the same IDC+GPU fleet; a blended $/GPU-hr feeds the engine.
+  // Token-as-a-Service modality mix — each modality bills the way industry does:
+  //   Text/Audio: per 1M tokens, split input vs output (text defaults to GLM-5.2: $1.40 in / $4.40 out);
+  //   Image: per image; Video: per second. hasIO modalities also carry an input:output token ratio.
+  //   rate = billable output units per GPU (tok/s for text/audio, images/hr for image, video-sec/hr for video).
+  //   All share the same IDC+GPU fleet; each modality's revenue/GPU-hr blends into one effective $/GPU-hr.
   modes:[
-    {k:'txt',name:'Text',  mix:0.55, price:0.80, tps:2000},
-    {k:'aud',name:'Audio', mix:0.15, price:3.00, tps:500},
-    {k:'img',name:'Image', mix:0.20, price:8.00, tps:250},
-    {k:'vid',name:'Video', mix:0.10, price:30.00, tps:50},
+    {k:'txt',name:'Text',  unit:'1M tok', hasIO:true,  mix:0.50, inPrice:1.40, outPrice:4.40,  ioRatio:3.0, rate:170},
+    {k:'aud',name:'Audio', unit:'1M tok', hasIO:true,  mix:0.15, inPrice:2.50, outPrice:15.00, ioRatio:1.0, rate:85},
+    {k:'img',name:'Image', unit:'image',  hasIO:false, mix:0.20, inPrice:0,    outPrice:0.04,  ioRatio:0,   rate:200},
+    {k:'vid',name:'Video', unit:'sec',    hasIO:false, mix:0.15, inPrice:0,    outPrice:0.10,  ioRatio:0,   rate:90},
   ],
 };
-function taasBlended(p){ // fleet-weighted blended token economics per GPU-hour
-  const modes=p.modes||[]; let rental=0,tpm=0,mixSum=0;
-  modes.forEach(m=>{const t=m.tps*3600/1e6; mixSum+=m.mix; tpm+=m.mix*t; rental+=m.mix*t*m.price;});
-  if(mixSum>0){tpm/=mixSum; rental/=mixSum;}
-  return {rental, tpm:Math.max(1e-9,tpm), price:tpm>0?rental/tpm:0}; // $/GPU-hr, 1M-tok/GPU-hr, blended $/1M
+function modeRevPerHr(m){ // one modality's revenue per GPU-hour, in its native billing unit
+  return m.hasIO
+    ? (m.rate*3600/1e6)*(m.outPrice + (m.ioRatio||0)*(m.inPrice||0)) // output tok/s → $/GPU-hr, incl. billed input tokens
+    : m.rate*m.outPrice; // images/hr × $/image, or video-sec/hr × $/sec
+}
+function taasBlended(p){ // fleet-weighted blended $/GPU-hour across modalities
+  let rev=0,mixSum=0;
+  (p.modes||[]).forEach(m=>{mixSum+=m.mix; rev+=m.mix*modeRevPerHr(m);});
+  return {rental: mixSum>0?rev/mixSum:0};
 }
 const TOG={debt:true, decline:true, util:false, phase:true, facility:true, lock:true, ga:true, wc:true, exit:true, exitcur:false, colo:true};
 let S={...DEF, modes:DEF.modes.map(m=>({...m}))}, T={...TOG};
@@ -455,9 +461,7 @@ function compute(p,tog){
   const useGpu=tog._gpu!==false;   // false for Data Hall / Colo products (PropCo only)
   const useTaas=tog._taas===true;  // Token-as-a-Service: revenue = tokens sold × price, not GPU-hr rental
   // TaaS blends the Text/Audio/Image/Video modality mix into one effective $/GPU-hr; cost stays the shared fleet
-  const bl=useTaas?taasBlended(p):null;
-  const tokPerGpuHrM=useTaas?bl.tpm:1; // 1M blended-token units produced per GPU-hour
-  const baseRental=useTaas?bl.rental:p.rental;
+  const baseRental=useTaas?taasBlended(p).rental:p.rental; // blended effective $/GPU-hr
   const occ=useGpu?1:(p.occupancy!=null?p.occupancy:1); // PropCo lease-up / occupancy
   const gpuMW=useGpu?target*p.powerKW/1000:0;
   const coloMW=useGpu?(useColo?p.coloMW:0):p.coloMW;  // GPU-off: colo is the whole facility
@@ -595,12 +599,7 @@ function compute(p,tog){
             ga:gaPerServerMo/ssBill};
     costBasis=cb.depr+cb.net+cb.facility+cb.rent+cb.elec+cb.warr+cb.oth+cb.ga;
     unitPrice=baseRental; unitStr='/GPU-hr'; rentMo=baseRental*H*p.utilSteady;
-    if(useTaas){
-      // restate per-GPU-hr economics per 1M output tokens (divide by 1M-tokens produced per GPU-hr)
-      for(const k in cb) cb[k]/=tokPerGpuHrM;
-      costBasis/=tokPerGpuHrM;
-      unitPrice=bl.price; unitStr='/1M tok'; // blended sell price across modalities
-    }
+    // TaaS keeps $/GPU-hr unit economics — the common denominator across mixed token/image/second billing units
   } else {
     // PropCo (Data Hall / Colo): unit economics per kW of leasable capacity per month
     const kW=Math.max(1,coloMW*1000*occ);
@@ -623,7 +622,7 @@ function compute(p,tog){
   return {N,useDebt,useFac,useGA,useWC,useExit,useExitCur,useColo,gpuMW,coloMW,totalCapex,servCapex:useGpu?target*p.serverPrice:0,netCapex,facTotal,mwIT,facExit,peakDebt,debtEnd,residual,servResidual,totalDebt,termProj,peakEquity,arEnd:ar[N],
     pIRR,eIRR,projNPV,eqNPV,moic,minDSCR,minICR,totRev,totNI,totEb,
     paybackYears:payM==null?null:payM/12,
-    cb,costBasis,margin,marginPct,avgEbMargin,rentMo,useGpu,useTaas,tokPerGpuHrM,unitPrice,unitStr,
+    cb,costBasis,margin,marginPct,avgEbMargin,rentMo,useGpu,useTaas,unitPrice,unitStr,
     yrs,mo};
 }
 
@@ -730,10 +729,10 @@ function sensitivity(){
   const mults=[0.6,0.8,1.0,1.2,1.4], cols=[0.6,0.7,0.8,0.9,0.95];
   const levered=T.debt, propco=T._gpu===false, taas=T._taas===true;
   // axes by product: TaaS = token price $/1M × utilization; PropCo/IDC = lease $/kW·mo × occupancy; GPU = rental $/GPU-hr × utilization
-  const base=taas?taasBlended(S).price:propco?S.coloRate:S.rental;
+  const base=taas?taasBlended(S).rental:propco?S.coloRate:S.rental;
   const grid=mults.map(rm=>cols.map(u=>{
     const o=taas
-      ? compute({...S, modes:S.modes.map(m=>({...m,price:m.price*rm})), utilSteady:u}, T)
+      ? compute({...S, modes:S.modes.map(m=>({...m,outPrice:m.outPrice*rm,inPrice:(m.inPrice||0)*rm})), utilSteady:u}, T)
       : propco
       ? compute({...S, coloRate:S.coloRate*rm, occupancy:u}, T)
       : compute({...S, rental:S.rental*rm, utilSteady:u}, T);
@@ -748,7 +747,7 @@ function sensitivity(){
     html+=`<tr><td class="num" style="color:var(--muted)">${rowLabel}</td>`+
       grid[i].map(v=>`<td style="background:${heatColor(v,lo,hi)};color:#0f1216">${v==null?'n/a':(v*100).toFixed(0)+'%'}</td>`).join('')+`</tr>`;
   });
-  const foot=taas?'rows: token price $/1M tok · columns: steady utilization'
+  const foot=taas?'rows: blended sell price $/GPU-hr · columns: steady utilization'
     :propco?'rows: IDC lease $/kW·mo · columns: occupancy':'rows: rental $/GPU-hr · columns: steady utilization';
   return html+`</tbody></table><div class="foot">${foot} · each cell reruns the full engine</div>`;
 }
@@ -809,7 +808,7 @@ function render(){
 
   document.getElementById('tape').innerHTML= o.useTaas?
     (()=>{const b=taasBlended(S);const mixSum=S.modes.reduce((s,m)=>s+m.mix,0)||1;const mixStr=S.modes.map(m=>`${m.name} ${(m.mix/mixSum*100).toFixed(0)}%`).join(' · ');
-    return `<b class="num">${(S.servers*S.gpus).toLocaleString()}</b> GPUs @ <b class="num cy">${money(S.serverPrice)}</b>/node · power <b class="num am">$${S.elec.toFixed(3)}/kWh</b> · selling tokens <b class="num">${mixStr}</b> · blended <b class="num">$${b.price.toFixed(2)}/1M</b> (≈$${b.rental.toFixed(2)}/GPU-hr)${T.decline?` · −${(S.rentalDecline*100).toFixed(0)}%/yr`:''} · <b class="num">${S.years}-yr</b> hold${T.debt?` · <b class="num">${(S.debtPct*100).toFixed(0)}%</b> debt`:' · all-equity'}`;})()
+    return `<b class="num">${(S.servers*S.gpus).toLocaleString()}</b> GPUs @ <b class="num cy">${money(S.serverPrice)}</b>/node · power <b class="num am">$${S.elec.toFixed(3)}/kWh</b> · selling <b class="num">${mixStr}</b> · blended <b class="num">$${b.rental.toFixed(2)}/GPU-hr</b>${T.decline?` · −${(S.rentalDecline*100).toFixed(0)}%/yr`:''} · <b class="num">${S.years}-yr</b> hold${T.debt?` · <b class="num">${(S.debtPct*100).toFixed(0)}%</b> debt`:' · all-equity'}`;})()
     : o.useGpu?
     `<b class="num">${(S.servers*S.gpus).toLocaleString()}</b> GPUs @ <b class="num cy">${money(S.serverPrice)}</b>/node · power <b class="num am">$${S.elec.toFixed(3)}/kWh</b> · renting <b class="num">$${S.rental.toFixed(2)}/GPU-hr</b>${(T.lock&&S.lockYears>0)?` <span style="color:var(--pass)">locked ${S.lockYears}yr</span>${T.decline?` then spot (−${(S.rentalDecline*100).toFixed(0)}%/yr)`:''}`:(T.decline?` <span>spot, eroding ${(S.rentalDecline*100).toFixed(0)}%/yr</span>`:'')} · <b class="num">${S.years}-yr</b> hold${(T.colo&&T.facility)?` · colo <b class="num am">${S.coloMW}MW @ $${S.coloRate}/kW</b>`:''}${T.debt?` · <b class="num">${(S.debtPct*100).toFixed(0)}%</b> debt`:' · all-equity'}`
     : `<b class="num">${S.coloMW}</b> MW data hall · dev <b class="num cy">${money(S.facilityPerMW)}</b>/MW · lease <b class="num am">$${S.coloRate}/kW/mo</b>${(T.colo&&S.coloEsc>0)?` +${(S.coloEsc*100).toFixed(1)}%/yr`:''} · PUE <b class="num">${S.pue.toFixed(2)}</b>${S.rackKW>0?` · ~<b class="num">${S.rackKW}</b>kW/rack`:''} · <b class="num">${S.years}-yr</b> hold${T.debt?` · <b class="num">${(S.debtPct*100).toFixed(0)}%</b> debt`:' · all-equity'}`;
@@ -855,7 +854,7 @@ function render(){
   </div>
 
   <div class="card">
-    <div class="h">Where each ${o.useTaas?'token':o.useGpu?'rental':'lease'} dollar goes — per ${o.useTaas?'1M tokens':o.useGpu?'GPU-hour':'kW / month'}</div>
+    <div class="h">Where each ${o.useTaas?'token':o.useGpu?'rental':'lease'} dollar goes — per ${o.useGpu?'GPU-hour':'kW / month'}</div>
     ${dollarBar(o,o.unitPrice)}
     <div class="legend">
       ${o.useGpu?`<span><i style="background:${CC.depr}"></i>Server depreciation <span class="num">${dol(o.cb.depr)}</span></span>
@@ -917,7 +916,7 @@ function render(){
       ${plRow('Tax',o.yrs.map(y=>-y.tax))}
       ${plRow('Net profit',o.yrs.map(y=>y.ni),true)}
       <tr><td style="color:var(--dim)">Net margin</td>${o.yrs.map(y=>{const m=y.rev>0?y.ni/y.rev:null;return `<td style="color:${m==null?'var(--dim)':m<0?'var(--fail)':'var(--dim)'}">${m==null?'—':(m*100).toFixed(1)+'%'}</td>`;}).join('')}<td style="color:${o.totNI/o.totRev<0?'var(--fail)':'var(--power)'}">${o.totRev>0?(o.totNI/o.totRev*100).toFixed(1)+'%':'—'}</td></tr>
-      <tr><td style="color:var(--dim)">${o.useTaas?'Avg token price $/1M':'Avg rental $/GPU-hr'}</td>${o.yrs.map(y=>`<td style="color:var(--dim)">${(o.useTaas?y.price/o.tokPerGpuHrM:y.price).toFixed(2)}</td>`).join('')}<td style="color:var(--dim)">—</td></tr>
+      <tr><td style="color:var(--dim)">${o.useTaas?'Avg blended $/GPU-hr':'Avg rental $/GPU-hr'}</td>${o.yrs.map(y=>`<td style="color:var(--dim)">${y.price.toFixed(2)}</td>`).join('')}<td style="color:var(--dim)">—</td></tr>
       <tr><td style="color:var(--dim)">Utilization</td>${o.yrs.map(y=>`<td style="color:var(--dim)">${(y.util*100).toFixed(0)}%</td>`).join('')}<td style="color:var(--dim)">—</td></tr>
     </tbody></table>
   </div>
@@ -1067,19 +1066,26 @@ function setModel(id){
 /* ── Token-as-a-Service modality mix table ── */
 function renderModes(){
   const host=document.getElementById('modeTable'); if(!host)return;
-  const rows=(S.modes||[]).map(m=>`<tr>
-    <td style="text-align:left;color:var(--ink)">${m.name}</td>
-    <td><input class="mi" type="number" step="1" min="0" value="${(m.mix*100).toFixed(0)}" oninput="setMode('${m.k}','mix',this.value)"></td>
-    <td><input class="mi" type="number" step="0.1" min="0" value="${m.price}" oninput="setMode('${m.k}','price',this.value)"></td>
-    <td><input class="mi" type="number" step="50" min="0" value="${m.tps}" oninput="setMode('${m.k}','tps',this.value)"></td>
-  </tr>`).join('');
-  host.innerHTML=`<table class="modet"><thead><tr><th>Modality</th><th>Mix %</th><th>$/1M</th><th>tok/s·GPU</th></tr></thead><tbody>${rows}</tbody></table><div class="foot" id="modeSummary"></div>`;
+  const rows=(S.modes||[]).map(m=>{
+    const rateUnit=m.hasIO?'tok/s':(m.unit==='image'?'img/hr':'sec/hr');
+    const inCell=m.hasIO
+      ? `<input class="mi" type="number" step="0.1" min="0" value="${m.inPrice}" oninput="setMode('${m.k}','inPrice',this.value)">`
+      : `<span style="color:var(--dim)">—</span>`;
+    return `<tr>
+      <td style="text-align:left"><span style="color:var(--ink)">${m.name}</span><br><span style="color:var(--dim);font-size:8px">$/${m.unit} · ${rateUnit}</span></td>
+      <td><input class="mi" type="number" step="1" min="0" value="${(m.mix*100).toFixed(0)}" oninput="setMode('${m.k}','mix',this.value)"></td>
+      <td>${inCell}</td>
+      <td><input class="mi" type="number" step="${m.outPrice<1?0.01:0.1}" min="0" value="${m.outPrice}" oninput="setMode('${m.k}','outPrice',this.value)"></td>
+      <td><input class="mi" type="number" step="${m.hasIO?5:10}" min="0" value="${m.rate}" oninput="setMode('${m.k}','rate',this.value)"></td>
+    </tr>`;
+  }).join('');
+  host.innerHTML=`<table class="modet"><thead><tr><th>Modality</th><th>Mix%</th><th>In $</th><th>Out $</th><th>Rate</th></tr></thead><tbody>${rows}</tbody></table><div class="foot" id="modeSummary"></div>`;
   updateModeSummary();
 }
 function updateModeSummary(){
   const el=document.getElementById('modeSummary'); if(!el)return;
   const b=taasBlended(S), mixSum=(S.modes||[]).reduce((s,m)=>s+m.mix,0);
-  el.innerHTML=`blended ≈ <b class="num">$${b.price.toFixed(2)}</b>/1M tok · <b class="num">$${b.rental.toFixed(2)}</b>/GPU-hr${Math.abs(mixSum-1)>0.005?` · mix sums ${(mixSum*100).toFixed(0)}% (normalized)`:''}`;
+  el.innerHTML=`blended ≈ <b class="num">$${b.rental.toFixed(2)}</b>/GPU-hr${Math.abs(mixSum-1)>0.005?` · mix ${(mixSum*100).toFixed(0)}% (normalized)`:''}`;
 }
 function setMode(k,field,val){
   const m=(S.modes||[]).find(x=>x.k===k); if(!m)return;
