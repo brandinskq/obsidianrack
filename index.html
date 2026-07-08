@@ -638,6 +638,18 @@ const yrf=v=>v==null?'—':v.toFixed(2)+' yr';
 
 /* ═══════════════ charts (SVG) ═══════════════ */
 const CC={depr:'#c8ff00',net:'#9fd41f',warr:'#5f7d00',facility:'#7dd3fc',rent:'#4a90b8',elec:'#2e5f7d',oth:'#8a8a8a',ga:'#c084fc',profit:'#c8ff00',loss:'#ff5c6c'};
+const MODE_CC={txt:'#c8ff00',aud:'#7dd3fc',img:'#c084fc',vid:'#ff8c42'};
+function modalitySplit(){ // TaaS: capacity-mix vs revenue-share bars + legend
+  const modes=S.modes||[]; const mixSum=modes.reduce((s,m)=>s+m.mix,0)||1;
+  const rev=modes.map(m=>m.mix*modeRevPerHr(m)); const revTot=rev.reduce((a,b)=>a+b,0)||1;
+  const d=modes.map((m,i)=>({m,mixPct:m.mix/mixSum*100,revPct:rev[i]/revTot*100,revHr:modeRevPerHr(m)}));
+  const stack=key=>`<div style="display:flex;height:18px;border-radius:2px;overflow:hidden">`+
+    d.map(x=>`<div style="width:${x[key].toFixed(2)}%;background:${MODE_CC[x.m.k]}" title="${x.m.name} ${x[key].toFixed(1)}%"></div>`).join('')+`</div>`;
+  const cap=t=>`<div style="font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:2px 0 4px">${t}</div>`;
+  const rows=d.map(x=>`<tr><td style="text-align:left"><i style="display:inline-block;width:9px;height:9px;background:${MODE_CC[x.m.k]};border-radius:2px;margin-right:6px;vertical-align:middle"></i>${x.m.name}</td><td>${x.mixPct.toFixed(0)}%</td><td style="color:var(--ink)">${x.revPct.toFixed(0)}%</td><td>$${x.revHr.toFixed(2)}</td></tr>`).join('');
+  return `${cap('Capacity mix — GPU allocation')}${stack('mixPct')}${cap('Revenue share')}${stack('revPct')}
+    <table class="modet" style="margin-top:12px"><thead><tr><th>Modality</th><th>Mix</th><th>Rev</th><th>$/GPU-hr</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
 function dollarBar(o,price){
   const W=640,H=70,pad=8,barH=30,y=16;
   const segs=[['depr',o.cb.depr],['net',o.cb.net||0],['warr',o.cb.warr],['facility',o.cb.facility||0],['rent',o.cb.rent||0],['elec',o.cb.elec],['oth',o.cb.oth],['ga',o.cb.ga||0]];
@@ -876,6 +888,12 @@ function render(){
     <div class="h">Capital stack — ${money(o.totalCapex)}</div>
     ${capexBar(o)}
   </div>
+
+  ${o.useTaas?`<div class="card">
+    <div class="h">Revenue by modality — blended $${taasBlended(S).rental.toFixed(2)}/GPU-hr</div>
+    ${modalitySplit()}
+    <div class="foot">capacity mix = GPU allocation · revenue share = mix × $/GPU-hr, normalized — high-\$ modalities (video) earn a bigger slice than their capacity</div>
+  </div>`:''}
 
   <div class="duo">
     <div class="card">
