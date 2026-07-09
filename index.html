@@ -344,7 +344,7 @@
 <script>
 /* ═══════════════ defaults & fields ═══════════════ */
 const DEF={
-  serverPrice:550000, elec:0.047, rental:8.46, years:5, netPct:0.12, transitMo:0,
+  serverPrice:550000, elec:0.047, rental:7.76, years:5, netPct:0.12, transitMo:0,
   wsShare:0.65, // GPU sales mix: 65% wholesale/contract, 35% on-demand retail — blends the rental
 
   servers:512, gpus:8, deployMonths:3, leadMonths:2, lockYears:5,
@@ -393,8 +393,8 @@ let S={...DEF, modes:DEF.modes.map(m=>({...m}))}, T={...TOG};
 const GPU_MODELS=[
   {id:'h100',  name:'H100 SXM',    gpus:8,  power:10.2, cost:280000,  liquid:false, unit:'node', ws:2.00,  od:6.88,  net:0.12},
   {id:'h200',  name:'H200',        gpus:8,  power:10.4, cost:320000,  liquid:false, unit:'node', ws:2.50,  od:10.00, net:0.12},
-  {id:'b200',  name:'B200',        gpus:8,  power:14.0, cost:420000,  liquid:false, unit:'node', ws:3.60,  od:14.00, net:0.12},
-  {id:'b300',  name:'B300',        gpus:8,  power:15.0, cost:550000,  liquid:true,  unit:'node', ws:4.40,  od:16.00, net:0.12},
+  {id:'b200',  name:'B200',        gpus:8,  power:14.0, cost:420000,  liquid:false, unit:'node', ws:3.60,  od:13.00, net:0.12},
+  {id:'b300',  name:'B300',        gpus:8,  power:15.0, cost:550000,  liquid:true,  unit:'node', ws:4.40,  od:14.00, net:0.12},
   {id:'gb300', name:'GB300 NVL72', gpus:72, power:140,  cost:6300000, liquid:true,  unit:'rack', ws:10.50, od:16.00, net:0.03},
 ];
 const blendRental=(m,s)=>s*m.ws+(1-s)*m.od; // s = wholesale share (0..1)
