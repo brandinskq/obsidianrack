@@ -394,7 +394,7 @@ const GPU_MODELS=[
   {id:'h100',  name:'H100 SXM',    gpus:8,  power:10.2, cost:280000,  liquid:false, unit:'node', ws:2.00,  od:6.88,  net:0.12},
   {id:'h200',  name:'H200',        gpus:8,  power:10.4, cost:320000,  liquid:false, unit:'node', ws:2.50,  od:10.00, net:0.12},
   {id:'b200',  name:'B200',        gpus:8,  power:14.0, cost:420000,  liquid:false, unit:'node', ws:3.60,  od:13.00, net:0.12},
-  {id:'b300',  name:'B300',        gpus:8,  power:15.0, cost:550000,  liquid:true,  unit:'node', ws:4.40,  od:14.00, net:0.12},
+  {id:'b300',  name:'B300',        gpus:8,  power:15.0, cost:550000,  liquid:false, unit:'node', ws:4.40,  od:14.00, net:0.12},
   {id:'gb300', name:'GB300 NVL72', gpus:72, power:140,  cost:6300000, liquid:true,  unit:'rack', ws:10.50, od:16.00, net:0.03},
 ];
 const blendRental=(m,s)=>s*m.ws+(1-s)*m.od; // s = wholesale share (0..1)
@@ -1029,7 +1029,7 @@ function render(){
       ${row('Segment EBITDA',money(dcEb),money(gEb),money(cEb))}
       ${row('EBITDA margin',pctf(dcEb/dcRev),pctf(gEb/gRev),pctf(cEb/o.totRev))}
     </tbody></table>
-    <div class="foot">Analytical lens only — the DC layer charges the GPU layer a notional arm's-length rent at the colo market rate ($${S.coloRate}/kW/mo, ${(S.coloEsc*100).toFixed(1)}%/yr) for its ${o.gpuMW.toFixed(2)} MW. This eliminates on consolidation: all real economics (cost basis, IRR, DSCR, verdict) use the owned-facility cost of ≈$73/kW/mo (depreciation + ground rent + O&M share). Depreciation and G&A sit below this view (G&A charged to GPU layer).</div>
+    <div class="foot">Analytical lens only — the DC layer charges the GPU layer a notional arm's-length rent at the colo market rate ($${S.coloRate}/kW/mo, ${(S.coloEsc*100).toFixed(1)}%/yr) for its ${o.gpuMW.toFixed(2)} MW. This eliminates on consolidation: all real economics (cost basis, IRR, DSCR, verdict) use the owned-facility cost of ≈$${(o.mwIT>0?((o.facTotal/(S.facilityLife*12)+o.mwIT*S.siteRentPerMW/12+o.facTotal*S.otherPct/12)/(o.mwIT*1000)):0).toFixed(0)}/kW/mo (depreciation + ground rent + O&M share). Depreciation and G&A sit below this view (G&A charged to GPU layer).</div>
   </div>`;})():''}
 
   <div class="card">
