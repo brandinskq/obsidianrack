@@ -688,6 +688,20 @@ function modalitySplit(){ // TaaS: capacity-mix vs revenue-share bars + legend
   return `${cap('Capacity mix — GPU allocation')}${stack('mixPct')}${cap('Revenue share')}${stack('revPct')}
     <table class="modet" style="margin-top:12px"><thead><tr><th>Modality</th><th>Mix</th><th>Rev</th><th>$/GPU-hr</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
+const TIER_CC={ws:'#7dd3fc', od:'#c8ff00'}; // wholesale=sky, on-demand=lime
+function tierSplit(){ // GaaS: wholesale vs on-demand capacity/price/revenue shown separately
+  const m=GPU_MODELS.find(x=>x.id===GPU); if(!m)return '';
+  const s=S.wsShare;
+  const d=[{k:'ws',name:'Wholesale',cap:s*100,price:m.ws},{k:'od',name:'On-demand',cap:(1-s)*100,price:m.od}];
+  const revTot=d.reduce((a,x)=>a+x.cap/100*x.price,0)||1;
+  d.forEach(x=>x.revPct=(x.cap/100*x.price)/revTot*100);
+  const stack=key=>`<div style="display:flex;height:18px;border-radius:2px;overflow:hidden">`+
+    d.map(x=>`<div style="width:${x[key].toFixed(2)}%;background:${TIER_CC[x.k]}" title="${x.name} ${x[key].toFixed(1)}%"></div>`).join('')+`</div>`;
+  const cap=t=>`<div style="font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:2px 0 4px">${t}</div>`;
+  const rows=d.map(x=>`<tr><td style="text-align:left"><i style="display:inline-block;width:9px;height:9px;background:${TIER_CC[x.k]};border-radius:2px;margin-right:6px;vertical-align:middle"></i>${x.name}</td><td>${x.cap.toFixed(0)}%</td><td style="color:var(--ink)">${x.revPct.toFixed(0)}%</td><td>$${x.price.toFixed(2)}</td></tr>`).join('');
+  return `${cap('Sales split — capacity')}${stack('cap')}${cap('Revenue share')}${stack('revPct')}
+    <table class="modet" style="margin-top:12px"><thead><tr><th>Tier</th><th>Capacity</th><th>Rev</th><th>$/GPU-hr</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
 function dollarBar(o,price){
   const W=640,H=70,pad=8,barH=30,y=16;
   const segs=[['depr',o.cb.depr],['net',o.cb.net||0],['warr',o.cb.warr],['facility',o.cb.facility||0],['rent',o.cb.rent||0],['elec',o.cb.elec],['oth',o.cb.oth],['ga',o.cb.ga||0]];
@@ -931,6 +945,12 @@ function render(){
     <div class="h">Revenue by modality — blended $${taasBlended(S).rental.toFixed(2)}/GPU-hr</div>
     ${modalitySplit()}
     <div class="foot">capacity mix = GPU allocation · revenue share = mix × $/GPU-hr, normalized — high-\$ modalities (video) earn a bigger slice than their capacity</div>
+  </div>`:''}
+
+  ${(o.useGpu&&!o.useTaas)?`<div class="card">
+    <div class="h">Revenue by pricing tier — wholesale vs on-demand</div>
+    ${tierSplit()}
+    <div class="foot">${(S.wsShare*100).toFixed(0)}% of GPU-hours sold wholesale @ $${(GPU_MODELS.find(x=>x.id===GPU)||{}).ws?.toFixed(2)}, ${((1-S.wsShare)*100).toFixed(0)}% on-demand @ $${(GPU_MODELS.find(x=>x.id===GPU)||{}).od?.toFixed(2)} — priced separately, then summed into revenue</div>
   </div>`:''}
 
   <div class="duo">
