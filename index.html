@@ -350,8 +350,8 @@ const DEF={
   servers:128, gpus:8, deployMonths:3, leadMonths:2, lockYears:5,
   coloMW:2, coloRate:220, coloLeaseYears:10, coloEsc:0.025,
   rentalDecline:0.12, utilStart:0.45, utilSteady:0.85, utilRamp:6,
-  powerKW:15, pue:1.45, warrantyPct:0.05, otherPct:0.025, residualPct:0.20, tax:0.15, saudiPct:1.00, occupancy:0.90, rackKW:0,
-  gaAnnual:3340000, gaInfl:0.08,
+  powerKW:15, pue:1.45, warrantyPct:0.05, otherPct:0.035, residualPct:0.20, tax:0.15, saudiPct:1.00, occupancy:0.90, rackKW:0,
+  gaPct:0.12, gaInfl:0.08,
   facilityPerMW:9000000, facilityLife:20, equipLife:5,
   siteRentPerMW:150000, coloPerKWMo:200,
   arDays:45, feePct:0.01, exitMult:8,
@@ -456,9 +456,9 @@ const F_COST=[
   {k:'facilityLife',label:'Facility useful life',unit:'yrs',step:1,tog:'facility',info:'Straight-line depreciation life of the building & M&E (own-build only). Traditional DC infrastructure runs 20yr.'},
   {k:'siteRentPerMW',label:'Ground rent (own-build)',unit:'$k/MW IT/yr',step:10,scale:1e3,tog:'facility',info:'Annual ground lease for the land under an owned facility (own-build only). Gulf industrial land is cheap — a minor cost line here.'},
   {k:'warrantyPct',gpuOnly:true,label:'Warranty & support',unit:'% capex/yr',step:0.5,pct:true,info:'OEM/vendor hardware support & spares, as % of server+network capex per year. 5% ≈ enterprise SLA; 3.5-4% self-maintenance.'},
-  {k:'otherPct',label:'Site staff & O&M',unit:'% capex/yr',step:0.5,pct:true,info:'On-site engineers, NOC, facility O&M, as % of total capex per year. 2.5% aligns with itemised staffing at comparable DCs. Escalates annually at the G&A inflation rate (salary growth).'},
-  {k:'gaAnnual',label:'Corporate G&A',unit:'$M / yr',step:0.25,scale:1e6,tog:'ga',info:'Corporate overhead — management, legal, finance, sales, HR. Fixed regardless of scale, so it dilutes as GPU count grows.'},
-  {k:'gaInfl',label:'G&A inflation',unit:'% / yr',step:0.5,pct:true,tog:'ga',info:'Annual growth in G&A, driven mainly by salary escalation.'},
+  {k:'otherPct',label:'Site staff & O&M',unit:'% capex/yr',step:0.5,pct:true,info:'On-site engineers, NOC, facility O&M, as % of total capex per year. 3.5% aligns with itemised staffing + M&E maintenance at comparable DCs. Escalates annually at the O&M inflation rate (salary growth).'},
+  {k:'gaPct',label:'Company opex + platform',unit:'% of revenue',step:1,pct:true,tog:'ga',info:'Corporate overhead (management, sales, admin, finance) plus the software platform (orchestration, inference serving, billing, R&D), as % of revenue. Scales with the business. Neoclouds run leaner (open-source Slurm/K8s stack) than managed hyperscaler platforms.'},
+  {k:'gaInfl',label:'O&M / salary inflation',unit:'% / yr',step:0.5,pct:true,info:'Annual growth in site staff & O&M, driven mainly by salary escalation.'},
   {k:'residualPct',gpuOnly:true,label:'Residual value (HW)',unit:'% at exit',step:1,pct:true,info:'Server resale value at exit, as % of purchase price. H100 held 35-50% at 3yr; 20% is a conservative floor for a 5yr-old B300.'},
   {k:'saudiPct',label:'Saudi / GCC ownership',unit:'%',step:5,pct:true,info:'Share of equity held by Saudi/GCC owners. Effective tax = ownership × 2.5% (Zakat) + (1−ownership) × 20% (foreign CIT). Zakat is technically levied on the Zakat base (net worth), approximated here on profit. 100% Saudi ⇒ 2.5% effective; 0% ⇒ 20%.'},
 ];
@@ -545,7 +545,7 @@ function compute(p,tog){
     oth[m]=(cumS[m]+cumN[m]+cumF[m])*p.otherPct/12*Math.pow(1+p.gaInfl,Math.floor((m-1)/12));
     othF[m]=cumF[m]*p.otherPct/12*Math.pow(1+p.gaInfl,Math.floor((m-1)/12));
     intR[m]=useFac?gpuMW*1000*p.coloRate*(online[m]/target)*Math.pow(1+p.coloEsc,Math.floor((m-1)/12)):0;
-    ga[m]=useGA?(p.gaAnnual/12)*Math.pow(1+p.gaInfl,Math.floor((m-1)/12)):0;
+    ga[m]=useGA?rev[m]*p.gaPct:0; // company opex + platform, scales with revenue
     rentx[m]=useFac?(mwIT*p.siteRentPerMW/12):(online[m]*p.powerKW*p.coloPerKWMo);
     trans[m]=online[m]>0?p.transitMo:0;
     cashopex[m]=elec[m]+warr[m]+oth[m]+ga[m]+rentx[m]+trans[m];
@@ -626,7 +626,6 @@ function compute(p,tog){
   let cb, costBasis, unitPrice, unitStr, rentMo;
   if(useGpu){
     const ssUtil=p.utilSteady, ssBill=gpus*H*ssUtil;
-    const gaPerServerMo=useGA?(p.gaAnnual/12)/Math.max(1,target):0;
     const facGpuPerServer=useFac?(p.powerKW/1000)*p.facilityPerMW:0;
     const rentPerServerMo=useFac?(p.powerKW/1000*p.siteRentPerMW/12):(p.powerKW*p.coloPerKWMo);
     cb={depr:p.serverPrice*(1-p.residualPct)/(p.equipLife*12)/ssBill,
@@ -636,7 +635,7 @@ function compute(p,tog){
             elec:p.powerKW*p.pue*H*p.elec/ssBill,
             warr:p.serverPrice*(1+p.netPct)*p.warrantyPct/12/ssBill,
             oth:(p.serverPrice*(1+p.netPct)+facGpuPerServer)*p.otherPct/12/ssBill,
-            ga:gaPerServerMo/ssBill};
+            ga:useGA?p.gaPct*baseRental:0};
     costBasis=cb.depr+cb.net+cb.facility+cb.rent+cb.elec+cb.warr+cb.oth+cb.ga;
     unitPrice=baseRental; unitStr='/GPU-hr'; rentMo=baseRental*H*p.utilSteady;
     // TaaS keeps $/GPU-hr unit economics — the common denominator across mixed token/image/second billing units
@@ -647,7 +646,7 @@ function compute(p,tog){
         rent:(coloMW*p.siteRentPerMW/12)/kW,
         elec:0,
         oth:(facTotal*p.otherPct/12)/kW,
-        ga:useGA?((p.gaAnnual/12)/kW):0};
+        ga:useGA?p.gaPct*p.coloRate:0};
     costBasis=cb.depr+cb.rent+cb.oth+cb.ga;
     unitPrice=p.coloRate; unitStr='/kW\u00b7mo'; rentMo=p.coloRate;
   }
