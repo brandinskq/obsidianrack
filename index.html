@@ -273,9 +273,12 @@
         <input type="range" id="elec_r" min="0.02" max="0.20" step="0.001">
       </div>
       <div class="drv" id="rentalRow">
-        <div class="row"><label>GPU rental price<span class="hint" id="rentNote">start price</span><span class="ttip" data-tip="GPU-hour rental price (start). B300 spot ~$2.45, dedicated ~$6.80, managed $12-18. $4.40 on a 5yr lock is a defensible contracted rate.">ⓘ</span></label>
+        <div class="row"><label>GPU rental price<span class="hint" id="rentNote">blended start price</span><span class="ttip" data-tip="Effective GPU-hour price, blended from the model's wholesale and on-demand rates by the wholesale sales share below. Wholesale = spot/contract floor; on-demand = lowest of AWS/Azure/OCI retail. Edit directly to override the blend.">ⓘ</span></label>
           <div class="val"><input type="number" id="rental" step="0.10"><span class="unit">$ / GPU-hr</span></div></div>
-        <input type="range" id="rental_r" min="0.5" max="12" step="0.1">
+        <input type="range" id="rental_r" min="0.5" max="20" step="0.1">
+        <div class="row" style="margin-top:9px"><label>Wholesale sales share<span class="hint" id="wsNote">65% contract · 35% on-demand</span><span class="ttip" data-tip="Share of fleet capacity sold on wholesale/committed contracts vs on-demand retail. Contract revenue is bankable (services debt); on-demand earns a premium but is volatile. rental = share×wholesale + (1−share)×on-demand.">ⓘ</span></label>
+          <div class="val"><input type="number" id="wsShare" step="5"><span class="unit">% wholesale</span></div></div>
+        <input type="range" id="wsShare_r" min="0" max="100" step="5">
       </div>
       <div class="drv" id="taasRow" style="display:none">
         <div class="row rowstack"><label>Token mix by modality<span class="hint">share · $/1M · GPU throughput</span><span class="ttip" data-tip="Revenue split by modality, each billed the industry way: Text & Audio per 1M tokens with input/output split (Text anchored to GLM-5.2: $1.40 in / $4.40 out); Image per image (Seedream 4.5 ~$0.04); Video per second (Seedance 2.0 ~$0.14). Rate = billable output per GPU (tok/s, images/hr, video-sec/hr). All modalities share one IDC + GPU fleet; the engine runs on a fleet-weighted blended $/GPU-hr.">ⓘ</span></label></div>
@@ -341,7 +344,9 @@
 <script>
 /* ═══════════════ defaults & fields ═══════════════ */
 const DEF={
-  serverPrice:550000, elec:0.047, rental:4.40, years:5, netPct:0.12, transitMo:0,
+  serverPrice:550000, elec:0.047, rental:8.46, years:5, netPct:0.12, transitMo:0,
+  wsShare:0.65, // GPU sales mix: 65% wholesale/contract, 35% on-demand retail — blends the rental
+
   servers:512, gpus:8, deployMonths:3, leadMonths:2, lockYears:5,
   coloMW:2, coloRate:220, coloLeaseYears:10, coloEsc:0.025,
   rentalDecline:0.12, utilStart:0.45, utilSteady:0.85, utilRamp:6,
@@ -383,13 +388,16 @@ let S={...DEF, modes:DEF.modes.map(m=>({...m}))}, T={...TOG};
 // net = external network capex as % of node cost. 8-GPU nodes need add-on InfiniBand/Spectrum-X (12%).
 // GB300 NVL72 is a rack-scale system whose price already bundles the in-rack NVLink/NVSwitch fabric,
 // so only the inter-rack/cluster backbone is extra (~3%).
+// ws = wholesale/spot floor $/GPU-hr; od = on-demand retail $/GPU-hr (lowest of AWS/Azure/OCI).
+// Effective rental blends the two by the wholesale sales share (default 65% contract / 35% on-demand).
 const GPU_MODELS=[
-  {id:'h100',  name:'H100 SXM',    gpus:8,  power:10.2, cost:280000,  liquid:false, unit:'node', rental:2.00, net:0.12},
-  {id:'h200',  name:'H200',        gpus:8,  power:10.4, cost:320000,  liquid:false, unit:'node', rental:2.50, net:0.12},
-  {id:'b200',  name:'B200',        gpus:8,  power:14.0, cost:420000,  liquid:false, unit:'node', rental:3.60, net:0.12},
-  {id:'b300',  name:'B300',        gpus:8,  power:15.0, cost:550000,  liquid:true,  unit:'node', rental:4.40, net:0.12},
-  {id:'gb300', name:'GB300 NVL72', gpus:72, power:140,  cost:6300000, liquid:true,  unit:'rack', rental:10.50, net:0.03},
+  {id:'h100',  name:'H100 SXM',    gpus:8,  power:10.2, cost:280000,  liquid:false, unit:'node', ws:2.00,  od:6.88,  net:0.12},
+  {id:'h200',  name:'H200',        gpus:8,  power:10.4, cost:320000,  liquid:false, unit:'node', ws:2.50,  od:10.00, net:0.12},
+  {id:'b200',  name:'B200',        gpus:8,  power:14.0, cost:420000,  liquid:false, unit:'node', ws:3.60,  od:14.00, net:0.12},
+  {id:'b300',  name:'B300',        gpus:8,  power:15.0, cost:550000,  liquid:true,  unit:'node', ws:4.40,  od:16.00, net:0.12},
+  {id:'gb300', name:'GB300 NVL72', gpus:72, power:140,  cost:6300000, liquid:true,  unit:'rack', ws:10.50, od:16.00, net:0.03},
 ];
+const blendRental=(m,s)=>s*m.ws+(1-s)*m.od; // s = wholesale share (0..1)
 let GPU='b300'; // current model id
 let GRADE='A'; // current AI DC grade (default A)
 
@@ -1085,7 +1093,7 @@ function bindToggles(){
     c.onchange=()=>{T[key]=c.checked; refreshDisabled(F_REV);refreshDisabled(F_COST);refreshDisabled(F_FIN); render();};
   });
 }
-function resetAll(){const cp=PRODUCTS.find(p=>p.id===PROD)||{};S={...DEF, modes:DEF.modes.map(m=>({...m}))};T={...TOG,...(cp.tog||{}),_gpu:cp.gpu,_taas:cp.taas===true};PRIM.forEach(bindPrimary);bindGpuCount();bindColo();bindToggles();setIdcMode(T.facility);buildGroup('body_rev',F_REV);buildGroup('body_cost',F_COST);buildGroup('body_fin',F_FIN);if(T._taas)renderModes();render();}
+function resetAll(){const cp=PRODUCTS.find(p=>p.id===PROD)||{};S={...DEF, modes:DEF.modes.map(m=>({...m}))};T={...TOG,...(cp.tog||{}),_gpu:cp.gpu,_taas:cp.taas===true};PRIM.forEach(bindPrimary);bindGpuCount();bindColo();bindWsShare();bindToggles();setIdcMode(T.facility);buildGroup('body_rev',F_REV);buildGroup('body_cost',F_COST);buildGroup('body_fin',F_FIN);if(T._taas)renderModes();render();}
 function preset(name){if(name==='saudi'){S.elec=0.047;}PRIM.forEach(bindPrimary);bindGpuCount();bindColo();buildGroup('body_rev',F_REV);buildGroup('body_cost',F_COST);buildGroup('body_fin',F_FIN);render();}
 
 /* ═══════════════ product & model selectors ═══════════════ */
@@ -1101,14 +1109,15 @@ function renderModelBar(){
   bar.classList.remove('hidden');
   bar.innerHTML='<span class="mlabel">GPU model</span>'+GPU_MODELS.map(m=>
     `<button class="modelbtn ${m.id===GPU?'on':''}" onclick="setModel('${m.id}')">
-      ${m.name} <span class="mp">${m.unit==='rack'?'rack':'8-GPU'} · $${(m.cost/1000).toFixed(0)}k · ${m.power}kW · $${m.rental.toFixed(2)}/hr</span></button>`).join('');
+      ${m.name} <span class="mp">${m.unit==='rack'?'rack':'8-GPU'} · $${(m.cost/1000).toFixed(0)}k · ${m.power}kW · $${blendRental(m,S.wsShare).toFixed(2)}/hr</span></button>`).join('');
 }
 function setModel(id){
   const m=GPU_MODELS.find(x=>x.id===id); if(!m)return;
   GPU=id;
   S.gpus=m.gpus; S.powerKW=m.power; S.serverPrice=m.cost;
-  if(m.rental!=null)S.rental=m.rental;
+  S.rental=blendRental(m,S.wsShare); // 65/35 wholesale/on-demand blend by default
   if(m.net!=null)S.netPct=m.net; // GB300 rack bundles NVLink → only inter-rack fabric is extra
+  updateWsNote(m);
 
   // liquid-cooled models drive facility cost & PUE
   if(m.liquid){S.facilityPerMW=12000000; S.pue=1.25;}
@@ -1187,6 +1196,20 @@ function setGrade(k){
   if(g){S.facilityPerMW=g.facilityPerMW; S.pue=g.pue; S.coloRate=g.coloRate; S.rackKW=g.rackKW;}
   syncInputs(); renderGradeBar(); render();
 }
+function updateWsNote(m){
+  const el=document.getElementById('wsNote'); m=m||GPU_MODELS.find(x=>x.id===GPU); if(!el||!m)return;
+  el.textContent=`WS $${m.ws.toFixed(2)} · OD $${m.od.toFixed(2)} → $${blendRental(m,S.wsShare).toFixed(2)}`;
+}
+function bindWsShare(){
+  const n=document.getElementById('wsShare'),r=document.getElementById('wsShare_r');
+  if(!n)return;
+  n.value=Math.round(S.wsShare*100); r.value=Math.round(S.wsShare*100);
+  const apply=v=>{v=Math.max(0,Math.min(100,v)); S.wsShare=v/100;
+    const m=GPU_MODELS.find(x=>x.id===GPU); if(m)S.rental=blendRental(m,S.wsShare);
+    syncInputs(); updateWsNote(m); renderModelBar(); render();};
+  n.oninput=()=>{let v=parseFloat(n.value); if(isNaN(v))v=0; r.value=v; apply(v);};
+  r.oninput=()=>{n.value=r.value; apply(parseFloat(r.value));};
+}
 function bindOcc(){
   const n=document.getElementById('occupancy'),r=document.getElementById('occupancy_r');
   if(!n)return;
@@ -1215,11 +1238,13 @@ function syncInputs(){
   buildGroup('body_rev',F_REV);buildGroup('body_cost',F_COST);buildGroup('body_fin',F_FIN);
 }
 
+(()=>{const m=GPU_MODELS.find(x=>x.id===GPU); if(m)S.rental=blendRental(m,S.wsShare);})(); // seed blended rental
 renderProdBar();
 renderModelBar();
 PRIM.forEach(bindPrimary);
 bindLease();
 bindOcc();
+bindWsShare();
 renderGradeBar();
 bindGpuCount();
 bindColo();
