@@ -352,7 +352,7 @@ const DEF={
   rentalDecline:0.12, utilStart:0.45, utilSteady:0.85, utilRamp:6,
   powerKW:15, pue:1.45, warrantyPct:0.05, otherPct:0.035, residualPct:0.20, tax:0.15, saudiPct:1.00, occupancy:0.90, rackKW:0,
   gaPct:0.12, gaInfl:0.08,
-  facilityPerMW:9000000, facilityLife:20, equipLife:5,
+  facilityPerMW:12000000, facilityLife:20, equipLife:5,
   siteRentPerMW:150000, coloPerKWMo:200,
   arDays:45, feePct:0.01, exitMult:8,
   debtPct:0.60, debtRate:0.08, debtTenor:36, disc:0.12,
@@ -1139,8 +1139,8 @@ function setModel(id){
   updateWsNote(m);
 
   // liquid-cooled models drive facility cost & PUE
-  if(m.liquid){S.facilityPerMW=12000000; S.pue=1.25;}
-  else{S.facilityPerMW=9000000; S.pue=1.45;}
+  if(m.liquid){S.facilityPerMW=16000000; S.pue=1.25;} // liquid AI hall (GB300)
+  else{S.facilityPerMW=12000000; S.pue=1.45;}          // air-cooled AI-ready
   syncInputs(); renderModelBar(); render();
 }
 /* ── Token-as-a-Service modality mix table ── */
