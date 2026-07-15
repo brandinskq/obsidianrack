@@ -280,6 +280,11 @@
           <div class="val"><input type="number" id="wsShare" step="5"><span class="unit">% wholesale</span></div></div>
         <input type="range" id="wsShare_r" min="0" max="100" step="5">
       </div>
+      <div class="drv" id="custRow">
+        <div class="row rowstack"><label>Customer type<span class="hint" id="vatNote">domestic · +15% VAT</span><span class="ttip" data-tip="VAT treatment of the quote. Domestic KSA sale → 15% VAT on the invoice. Qualifying export of services to a non-resident (e.g. a Dubai/UAE company consuming compute abroad) → 0% zero-rated. VAT is a pass-through: it does NOT change revenue, EBITDA or IRR — it only sets the customer-facing invoice price. Export zero-rating is subject to ZATCA confirmation and applies to a genuine service, not a lease of specific KSA-located hardware.">ⓘ</span></label>
+          <div class="modeseg"><button id="cust_domestic" class="modebtn" onclick="setCustomer('domestic')">Domestic · 15% VAT</button><button id="cust_export" class="modebtn" onclick="setCustomer('export')">Export · 0% VAT</button></div>
+        </div>
+      </div>
       <div class="drv" id="taasRow" style="display:none">
         <div class="row rowstack"><label>Token mix by modality<span class="hint">share · $/1M · GPU throughput</span><span class="ttip" data-tip="Revenue split by modality, each billed the industry way: Text & Audio per 1M tokens with input/output split (Text anchored to GLM-5.2: $1.40 in / $4.40 out); Image per image (Seedream 4.5 ~$0.04); Video per second (Seedance 2.0 ~$0.14). Rate = billable output per GPU (tok/s, images/hr, video-sec/hr). All modalities share one IDC + GPU fleet; the engine runs on a fleet-weighted blended $/GPU-hr.">ⓘ</span></label></div>
         <div id="modeTable"></div>
@@ -344,13 +349,13 @@
 <script>
 /* ═══════════════ defaults & fields ═══════════════ */
 const DEF={
-  serverPrice:550000, elec:0.047, rental:7.76, years:5, netPct:0.12, transitMo:0,
+  serverPrice:550000, elec:0.047, rental:7.76, years:3, netPct:0.12, transitMo:0,
   wsShare:0.65, // GPU sales mix: 65% wholesale/contract, 35% on-demand retail — blends the rental
 
   servers:128, gpus:8, deployMonths:3, leadMonths:2, lockYears:5,
   coloMW:2, coloRate:220, coloLeaseYears:10, coloEsc:0.025,
   rentalDecline:0.12, utilStart:0.45, utilSteady:0.85, utilRamp:6,
-  powerKW:15, pue:1.45, warrantyPct:0.05, otherPct:0.035, residualPct:0.20, tax:0.15, saudiPct:1.00, occupancy:0.90, rackKW:0,
+  powerKW:15, pue:1.45, warrantyPct:0.05, warrantyInclYears:3, otherPct:0.035, residualPct:0.40, tax:0.15, saudiPct:1.00, occupancy:0.90, rackKW:0,
   gaPct:0.12, gaInfl:0.08,
   facilityPerMW:12000000, facilityLife:20, equipLife:5,
   siteRentPerMW:150000, coloPerKWMo:200,
@@ -418,6 +423,8 @@ const PRODUCTS=[
    ov:{}},
 ];
 let PROD='ownbuild';
+let CUST='domestic'; // VAT customer type: 'domestic' (15%) | 'export' (0%, zero-rated services)
+const VAT_RATES={domestic:0.15, export:0};
 /* keys any product preset overrides — reset these to DEF on product switch so a prior preset (e.g. GPU-aaS util 75%) doesn't leak into the next */
 const OV_KEYS=[...new Set(PRODUCTS.flatMap(p=>Object.keys(p.ov||{})))];
 /* AI DC design grades — applied in PropCo (Data Hall / Colo) modes */
@@ -455,7 +462,8 @@ const F_COST=[
   {k:'equipLife',gpuOnly:true,label:'Equipment useful life',unit:'yrs',step:1,info:'Straight-line depreciation life of GPU servers & network gear, independent of the hold period. 5yr is standard for AI hardware.'},
   {k:'facilityLife',label:'Facility useful life',unit:'yrs',step:1,tog:'facility',info:'Straight-line depreciation life of the building & M&E (own-build only). Traditional DC infrastructure runs 20yr.'},
   {k:'siteRentPerMW',label:'Ground rent (own-build)',unit:'$k/MW IT/yr',step:10,scale:1e3,tog:'facility',info:'Annual ground lease for the land under an owned facility (own-build only). Gulf industrial land is cheap — a minor cost line here.'},
-  {k:'warrantyPct',gpuOnly:true,label:'Warranty & support',unit:'% capex/yr',step:0.5,pct:true,info:'OEM/vendor hardware support & spares, as % of server+network capex per year. 5% ≈ enterprise SLA; 3.5-4% self-maintenance.'},
+  {k:'warrantyPct',gpuOnly:true,label:'Warranty & support',unit:'% capex/yr',step:0.5,pct:true,info:'OEM/vendor hardware support & spares, as % of server+network capex per year, charged only AFTER the bundled-warranty window below. 5% ≈ enterprise SLA; 3.5-4% self-maintenance.'},
+  {k:'warrantyInclYears',gpuOnly:true,label:'Warranty included in price',unit:'yrs',step:1,info:'Years of OEM warranty already bundled in the node purchase price — no separate support charge during this window. Enterprise HGX systems ship with 3yr. The Warranty & support rate applies only after this period expires.'},
   {k:'otherPct',label:'Site staff & O&M',unit:'% capex/yr',step:0.5,pct:true,info:'On-site engineers, NOC, facility O&M, as % of total capex per year. 3.5% aligns with itemised staffing + M&E maintenance at comparable DCs. Escalates annually at the O&M inflation rate (salary growth).'},
   {k:'gaPct',label:'Company opex + platform',unit:'% of revenue',step:1,pct:true,tog:'ga',info:'Corporate overhead (management, sales, admin, finance) plus the software platform (orchestration, inference serving, billing, R&D), as % of revenue. Scales with the business. Neoclouds run leaner (open-source Slurm/K8s stack) than managed hyperscaler platforms.'},
   {k:'gaInfl',label:'O&M / salary inflation',unit:'% / yr',step:0.5,pct:true,info:'Annual growth in site staff & O&M, driven mainly by salary escalation.'},
@@ -541,7 +549,7 @@ function compute(p,tog){
     revC[m]=useColo?coloMW*1000*p.coloRate*(online[m]/target)*Math.pow(1+p.coloEsc,Math.floor((m-1)/12))*occ:0;
     rev[m]=revG[m]+revC[m];
     elec[m]=online[m]*p.powerKW*p.pue*H*p.elec;
-    warr[m]=(cumS[m]+cumN[m])*p.warrantyPct/12;
+    warr[m]=(m>Math.round((p.warrantyInclYears||0)*12))?(cumS[m]+cumN[m])*p.warrantyPct/12:0; // OEM warranty bundled in node price for the first warrantyInclYears
     oth[m]=(cumS[m]+cumN[m]+cumF[m])*p.otherPct/12*Math.pow(1+p.gaInfl,Math.floor((m-1)/12));
     othF[m]=cumF[m]*p.otherPct/12*Math.pow(1+p.gaInfl,Math.floor((m-1)/12));
     intR[m]=useFac?gpuMW*1000*p.coloRate*(online[m]/target)*Math.pow(1+p.coloEsc,Math.floor((m-1)/12)):0;
@@ -633,7 +641,7 @@ function compute(p,tog){
             facility:useFac?(facGpuPerServer/(p.facilityLife*12))/ssBill:0,
             rent:rentPerServerMo/ssBill,
             elec:p.powerKW*p.pue*H*p.elec/ssBill,
-            warr:p.serverPrice*(1+p.netPct)*p.warrantyPct/12/ssBill,
+            warr:p.serverPrice*(1+p.netPct)*p.warrantyPct/12/ssBill*Math.max(0,(p.years-(p.warrantyInclYears||0))/p.years),
             oth:(p.serverPrice*(1+p.netPct)+facGpuPerServer)*p.otherPct/12/ssBill,
             ga:useGA?p.gaPct*baseRental:0};
     costBasis=cb.depr+cb.net+cb.facility+cb.rent+cb.elec+cb.warr+cb.oth+cb.ga;
@@ -866,16 +874,26 @@ function verdict(o){
     </div></div>`;
 }
 
+function setCustomer(mode){
+  CUST=mode;
+  const d=document.getElementById('cust_domestic'), e=document.getElementById('cust_export');
+  if(d)d.classList.toggle('on', mode==='domestic');
+  if(e)e.classList.toggle('on', mode==='export');
+  const note=document.getElementById('vatNote');
+  if(note)note.textContent = mode==='export' ? 'export · 0% VAT (zero-rated)' : 'domestic · +15% VAT';
+  render();
+}
 /* ═══════════════ render ═══════════════ */
 function render(){
   const o=compute(S,T);
+  const vr=VAT_RATES[CUST]||0;
   const kpi=(l,v,s,c)=>`<div class="kpi"><div class="l">${l}</div><div class="v" style="color:${c||'var(--ink)'}">${v}</div>${s?`<div class="s">${s}</div>`:''}</div>`;
 
   document.getElementById('tape').innerHTML= o.useTaas?
     (()=>{const b=taasBlended(S);const mixSum=S.modes.reduce((s,m)=>s+m.mix,0)||1;const mixStr=S.modes.map(m=>`${m.name} ${(m.mix/mixSum*100).toFixed(0)}%`).join(' · ');
-    return `<b class="num">${(S.servers*S.gpus).toLocaleString()}</b> GPUs @ <b class="num cy">${money(S.serverPrice)}</b>/node · power <b class="num am">$${S.elec.toFixed(3)}/kWh</b> · selling <b class="num">${mixStr}</b> · blended <b class="num">$${b.rental.toFixed(2)}/GPU-hr</b>${T.decline?` · −${(S.rentalDecline*100).toFixed(0)}%/yr`:''} · <b class="num">${S.years}-yr</b> hold${T.debt?` · <b class="num">${(S.debtPct*100).toFixed(0)}%</b> debt`:' · all-equity'}`;})()
+    return `<b class="num">${(S.servers*S.gpus).toLocaleString()}</b> GPUs @ <b class="num cy">${money(S.serverPrice)}</b>/node · power <b class="num am">$${S.elec.toFixed(3)}/kWh</b> · selling <b class="num">${mixStr}</b> · blended <b class="num">$${b.rental.toFixed(2)}/GPU-hr</b>${vr>0?` <span class="num am">(+${(vr*100).toFixed(0)}% VAT → $${(b.rental*(1+vr)).toFixed(2)} incl)</span>`:` <span class="num" style="color:var(--pass)">(0% VAT · export)</span>`}${T.decline?` · −${(S.rentalDecline*100).toFixed(0)}%/yr`:''} · <b class="num">${S.years}-yr</b> hold${T.debt?` · <b class="num">${(S.debtPct*100).toFixed(0)}%</b> debt`:' · all-equity'}`;})()
     : o.useGpu?
-    `<b class="num">${(S.servers*S.gpus).toLocaleString()}</b> GPUs @ <b class="num cy">${money(S.serverPrice)}</b>/node · power <b class="num am">$${S.elec.toFixed(3)}/kWh</b> · renting <b class="num">$${S.rental.toFixed(2)}/GPU-hr</b>${(T.lock&&S.lockYears>0)?` <span style="color:var(--pass)">locked ${S.lockYears}yr</span>${T.decline?` then spot (−${(S.rentalDecline*100).toFixed(0)}%/yr)`:''}`:(T.decline?` <span>spot, eroding ${(S.rentalDecline*100).toFixed(0)}%/yr</span>`:'')} · <b class="num">${S.years}-yr</b> hold${(T.colo&&T.facility)?` · colo <b class="num am">${S.coloMW}MW @ $${S.coloRate}/kW</b>`:''}${T.debt?` · <b class="num">${(S.debtPct*100).toFixed(0)}%</b> debt`:' · all-equity'}`
+    `<b class="num">${(S.servers*S.gpus).toLocaleString()}</b> GPUs @ <b class="num cy">${money(S.serverPrice)}</b>/node · power <b class="num am">$${S.elec.toFixed(3)}/kWh</b> · renting <b class="num">$${S.rental.toFixed(2)}/GPU-hr</b>${vr>0?` <span class="num am">(+${(vr*100).toFixed(0)}% VAT → $${(S.rental*(1+vr)).toFixed(2)} incl)</span>`:` <span class="num" style="color:var(--pass)">(0% VAT · export)</span>`}${(T.lock&&S.lockYears>0)?` <span style="color:var(--pass)">locked ${S.lockYears}yr</span>${T.decline?` then spot (−${(S.rentalDecline*100).toFixed(0)}%/yr)`:''}`:(T.decline?` <span>spot, eroding ${(S.rentalDecline*100).toFixed(0)}%/yr</span>`:'')} · <b class="num">${S.years}-yr</b> hold${(T.colo&&T.facility)?` · colo <b class="num am">${S.coloMW}MW @ $${S.coloRate}/kW</b>`:''}${T.debt?` · <b class="num">${(S.debtPct*100).toFixed(0)}%</b> debt`:' · all-equity'}`
     : `<b class="num">${S.coloMW}</b> MW data hall · dev <b class="num cy">${money(S.facilityPerMW)}</b>/MW · lease <b class="num am">$${S.coloRate}/kW/mo</b>${(T.colo&&S.coloEsc>0)?` +${(S.coloEsc*100).toFixed(1)}%/yr`:''} · PUE <b class="num">${S.pue.toFixed(2)}</b>${S.rackKW>0?` · ~<b class="num">${S.rackKW}</b>kW/rack`:''} · <b class="num">${S.years}-yr</b> hold${T.debt?` · <b class="num">${(S.debtPct*100).toFixed(0)}%</b> debt`:' · all-equity'}`;
 
   document.getElementById('out').innerHTML=`
@@ -1269,6 +1287,7 @@ bindGpuCount();
 bindColo();
 bindToggles();
 setIdcMode(TOG.facility);
+setCustomer(CUST);
 buildGroup('body_rev',F_REV);
 buildGroup('body_cost',F_COST);
 buildGroup('body_fin',F_FIN);
