@@ -357,7 +357,7 @@ const DEF={
   rentalDecline:0.12, utilStart:0.45, utilSteady:0.85, utilRamp:6,
   powerKW:15, pue:1.45, warrantyPct:0.05, warrantyInclYears:3, otherPct:0.035, residualPct:0.40, tax:0.15, saudiPct:1.00, occupancy:0.90, rackKW:0,
   gaPct:0.12, gaInfl:0.08,
-  facilityPerMW:12000000, facilityLife:20, equipLife:5,
+  facilityPerMW:12000000, facilityLife:20,
   siteRentPerMW:150000, coloPerKWMo:200,
   arDays:45, feePct:0.01, exitMult:8,
   debtPct:0.60, debtRate:0.08, debtTenor:36, disc:0.12,
@@ -459,7 +459,6 @@ const F_REV=[
 ];
 const F_COST=[
   {k:'pue',gpuOnly:true,label:'PUE',unit:'x',step:0.05,info:'Power Usage Effectiveness — total facility power ÷ IT power. Air-cooled ~1.4-1.5; liquid-cooled ~1.2-1.3. Multiplies the electricity bill.'},
-  {k:'equipLife',gpuOnly:true,label:'Equipment useful life',unit:'yrs',step:1,info:'Straight-line depreciation life of GPU servers & network gear, independent of the hold period. 5yr is standard for AI hardware.'},
   {k:'facilityLife',label:'Facility useful life',unit:'yrs',step:1,tog:'facility',info:'Straight-line depreciation life of the building & M&E (own-build only). Traditional DC infrastructure runs 20yr.'},
   {k:'siteRentPerMW',label:'Ground rent (own-build)',unit:'$k/MW IT/yr',step:10,scale:1e3,tog:'facility',info:'Annual ground lease for the land under an owned facility (own-build only). Gulf industrial land is cheap — a minor cost line here.'},
   {k:'warrantyPct',gpuOnly:true,label:'Warranty & support',unit:'% capex/yr',step:0.5,pct:true,info:'OEM/vendor hardware support & spares, as % of server+network capex per year, charged only AFTER the bundled-warranty window below. 5% ≈ enterprise SLA; 3.5-4% self-maintenance.'},
@@ -559,8 +558,8 @@ function compute(p,tog){
     cashopex[m]=elec[m]+warr[m]+oth[m]+ga[m]+rentx[m]+trans[m];
     ar[m]=useWC?rev[m]*p.arDays/30.4:0;
     dwc[m]=ar[m]-ar[m-1];
-    deprS[m]=Math.min(cumS[m]*(1-p.residualPct)/(p.equipLife*12), Math.max(0,cumS[m]*(1-p.residualPct)-accDeprS)); accDeprS+=deprS[m];
-    deprN[m]=Math.min(cumN[m]/(p.equipLife*12), Math.max(0,cumN[m]-accDeprN)); accDeprN+=deprN[m];
+    deprS[m]=Math.min(cumS[m]*(1-p.residualPct)/(p.years*12), Math.max(0,cumS[m]*(1-p.residualPct)-accDeprS)); accDeprS+=deprS[m];
+    deprN[m]=Math.min(cumN[m]/(p.years*12), Math.max(0,cumN[m]-accDeprN)); accDeprN+=deprN[m];
     deprF[m]=useFac?Math.min(cumF[m]/(p.facilityLife*12), Math.max(0,cumF[m]-accDeprF)):0; accDeprF+=deprF[m];
     depr[m]=deprS[m]+deprN[m]+deprF[m];
     ebitda[m]=rev[m]-cashopex[m];
@@ -636,8 +635,8 @@ function compute(p,tog){
     const ssUtil=p.utilSteady, ssBill=gpus*H*ssUtil;
     const facGpuPerServer=useFac?(p.powerKW/1000)*p.facilityPerMW:0;
     const rentPerServerMo=useFac?(p.powerKW/1000*p.siteRentPerMW/12):(p.powerKW*p.coloPerKWMo);
-    cb={depr:p.serverPrice*(1-p.residualPct)/(p.equipLife*12)/ssBill,
-            net:(p.serverPrice*p.netPct/(p.equipLife*12)+p.transitMo/Math.max(1,target))/ssBill,
+    cb={depr:p.serverPrice*(1-p.residualPct)/(p.years*12)/ssBill,
+            net:(p.serverPrice*p.netPct/(p.years*12)+p.transitMo/Math.max(1,target))/ssBill,
             facility:useFac?(facGpuPerServer/(p.facilityLife*12))/ssBill:0,
             rent:rentPerServerMo/ssBill,
             elec:p.powerKW*p.pue*H*p.elec/ssBill,
