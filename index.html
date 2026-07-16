@@ -350,7 +350,7 @@
 /* ═══════════════ defaults & fields ═══════════════ */
 const DEF={
   serverPrice:550000, elec:0.047, rental:7.76, years:5, netPct:0.12, transitMo:0,
-  wsShare:0.65, // GPU sales mix: 65% wholesale/contract, 35% on-demand retail — blends the rental
+  wsShare:1.0, // GPU sales mix: 100% wholesale/contract, 0% on-demand — blends the rental
 
   servers:128, gpus:8, deployMonths:3, leadMonths:2, lockYears:5,
   coloMW:2, coloRate:220, coloLeaseYears:10, coloEsc:0.025,
@@ -1241,6 +1241,7 @@ function bindWsShare(){
   const n=document.getElementById('wsShare'),r=document.getElementById('wsShare_r');
   if(!n)return;
   n.value=Math.round(S.wsShare*100); r.value=Math.round(S.wsShare*100);
+  updateWsNote();
   const apply=v=>{v=Math.max(0,Math.min(100,v)); S.wsShare=v/100;
     const m=GPU_MODELS.find(x=>x.id===GPU); if(m)S.rental=blendRental(m,S.wsShare);
     syncInputs(); updateWsNote(m); renderModelBar(); render();};
