@@ -1031,7 +1031,7 @@ function render(){
   </div>
 
   ${(()=>{
-    let cum=0; const cums=o.yrs.map(y=>{cum+=y.fcfe;return cum;});
+    let cum=0; const _N=o.yrs.length; const cums=o.yrs.map((y,i)=>{cum+=y.fcfe+(i===_N-1?o.termProj:0);return cum;});
     return `<div class="card">
     <div class="h">Annual cash flow — cluster</div>
     <table><thead><tr><th>$</th>${o.yrs.map(y=>`<th>Y${y.y}</th>`).join('')}<th style="color:var(--power)">Total</th></tr></thead><tbody>
@@ -1040,9 +1040,10 @@ function render(){
       ${T.debt?plRow('Debt drawdown',o.yrs.map(y=>y.draw)):''}
       ${T.debt?plRow('Principal repayments',o.yrs.map(y=>-y.repay)):''}
       ${plRow('Free cash flow to equity',o.yrs.map(y=>y.fcfe),true)}
+      ${plRow('Hardware resale + WC',o.yrs.map((y,i)=>i===o.yrs.length-1?o.termProj:0))}
       <tr><td style="color:var(--dim)">Cumulative equity cash</td>${cums.map(v=>`<td style="color:${v<0?'var(--fail)':'var(--dim)'}">${money(v)}</td>`).join('')}<td style="color:var(--dim)">—</td></tr>
     </tbody></table>
-    <div class="foot">Excludes exit proceeds (${money(o.termProj)} terminal value lands in month ${o.N}). Cumulative trough ≈ the peak equity need shown above.</div>
+    <div class="foot">Terminal ${money(o.termProj)} (hardware resale + working-capital release) lands in month ${o.N} — shown in the final-year row, folded into cumulative, and already in the IRR. Cumulative trough ≈ the peak equity need shown above.</div>
   </div>`;})()}
 
   ${o.useFac?(()=>{
