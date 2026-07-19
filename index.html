@@ -723,6 +723,23 @@ function dollarBar(o,price){
       <text x="${px.toFixed(1)}" y="${y+barH+20}" fill="#e9edf2" font-size="10.5" font-family="ui-monospace,monospace" text-anchor="middle">price ${dol(price)}</text>`;
   return `<svg viewBox="0 0 ${W} ${H+6}" width="100%" height="${H+6}">${r}</svg>`;
 }
+function dollarTable(o){
+  const price=o.unitPrice, pc=v=>price>0?(v/price*100):0;
+  const sw=c=>`<i style="display:inline-block;width:9px;height:9px;background:${c};border-radius:2px;margin-right:6px;vertical-align:middle"></i>`;
+  const rows=[];
+  if(o.useGpu){
+    rows.push(['Server depreciation',o.cb.depr,CC.depr],['Network',o.cb.net,CC.net],['Warranty',o.cb.warr,CC.warr]);
+    if(o.useFac)rows.push(['Facility',o.cb.facility,CC.facility]);
+    rows.push([o.useFac?'Ground rent':'Colo fee',o.cb.rent,CC.rent],['Electricity',o.cb.elec,CC.elec],['Site staff',o.cb.oth,CC.oth]);
+    if(o.useGA)rows.push(['Corporate G&amp;A',o.cb.ga,CC.ga]);
+  }else{
+    rows.push(['Facility depreciation',o.cb.depr,CC.depr],['Ground rent',o.cb.rent,CC.rent],['O&amp;M',o.cb.oth,CC.oth]);
+    if(o.useGA)rows.push(['Corporate G&amp;A',o.cb.ga,CC.ga]);
+  }
+  const body=rows.filter(r=>r[1]>0.0001).map(([l,v,c])=>`<tr><td style="text-align:left">${sw(c)}${l}</td><td style="color:var(--ink)">${dol(v)}</td><td>${pc(v).toFixed(0)}%</td></tr>`).join('');
+  const m=o.margin, pf=`<tr style="border-top:1px solid var(--line2)"><td style="text-align:left">${sw(m>=0?CC.profit:CC.loss)}<b style="color:var(--ink)">${m>=0?'Profit':'Loss'}</b></td><td style="color:var(--ink)"><b>${dol(Math.abs(m))}</b></td><td><b style="color:var(--ink)">${pc(Math.abs(m)).toFixed(0)}%</b></td></tr>`;
+  return `<table class="modet" style="margin-top:10px"><thead><tr><th style="text-align:left">Component</th><th>$/${o.useGpu?'GPU-hr':'kW·mo'}</th><th>Share of price</th></tr></thead><tbody>${body}${pf}</tbody></table>`;
+}
 function capexBar(o){
   const W=640,H=46,pad=8,barH=18,y=8;
   if(o.totalCapex<=0)return'';
@@ -939,17 +956,7 @@ function render(){
   <div class="card">
     <div class="h">Where each ${o.useTaas?'token':o.useGpu?'rental':'lease'} dollar goes — per ${o.useGpu?'GPU-hour':'kW / month'}</div>
     ${dollarBar(o,o.unitPrice)}
-    <div class="legend">
-      ${o.useGpu?`<span><i style="background:${CC.depr}"></i>Server depreciation <span class="num">${dol(o.cb.depr)}</span></span>
-      <span><i style="background:${CC.net}"></i>Network <span class="num">${dol(o.cb.net)}</span></span>
-      <span><i style="background:${CC.warr}"></i>Warranty <span class="num">${dol(o.cb.warr)}</span></span>
-      ${o.useFac?`<span><i style="background:${CC.facility}"></i>Facility <span class="num">${dol(o.cb.facility)}</span></span>`:''}`:`<span><i style="background:${CC.depr}"></i>Facility depreciation <span class="num">${dol(o.cb.depr)}</span></span>`}
-      <span><i style="background:${CC.rent}"></i>${o.useGpu?(o.useFac?'Ground rent':'Colo fee'):'Ground rent'} <span class="num">${dol(o.cb.rent)}</span></span>
-      ${o.useGpu?`<span><i style="background:${CC.elec}"></i>Electricity <span class="num">${dol(o.cb.elec)}</span></span>`:''}
-      <span><i style="background:${CC.oth}"></i>${o.useGpu?'Site staff':'O&amp;M'} <span class="num">${dol(o.cb.oth)}</span></span>
-      ${o.useGA?`<span><i style="background:${CC.ga}"></i>Corporate G&amp;A <span class="num">${dol(o.cb.ga)}</span></span>`:''}
-      <span><i style="background:${o.margin>=0?CC.profit:CC.loss}"></i>${o.margin>=0?'Profit':'Loss'} <span class="num">${dol(Math.abs(o.margin))}</span></span>
-    </div>
+    ${dollarTable(o)}
     <div class="foot">cyan family = compute layer (servers) · amber family = power &amp; facility layer</div>
   </div>
 
