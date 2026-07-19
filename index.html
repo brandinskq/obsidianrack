@@ -355,7 +355,7 @@ const DEF={
   servers:128, gpus:8, deployMonths:3, leadMonths:2, lockYears:5,
   coloMW:2, coloRate:220, coloLeaseYears:10, coloEsc:0.025,
   rentalDecline:0.12, utilStart:1.0, utilSteady:1.0, utilRamp:6, // wholesale take-or-pay: 100% billed
-  powerKW:14, pue:1.45, warrantyPct:0.05, warrantyInclYears:3, otherPct:0.035, residualPct:0.20, netResidualPct:0.20, tax:0.15, saudiPct:1.00, occupancy:0.90, rackKW:0,
+  powerKW:14, netPowerPct:0.10, pue:1.45, warrantyPct:0.05, warrantyInclYears:3, otherPct:0.035, residualPct:0.20, netResidualPct:0.20, tax:0.15, saudiPct:1.00, occupancy:0.90, rackKW:0,
   gaPct:0.12, gaInfl:0.08,
   facilityPerMW:12000000, facilityLife:20,
   siteRentPerMW:150000, coloPerKWMo:200,
@@ -511,7 +511,8 @@ function compute(p,tog){
   // TaaS blends the Text/Audio/Image/Video modality mix into one effective $/GPU-hr; cost stays the shared fleet
   const baseRental=useTaas?taasBlended(p).rental:p.rental; // blended effective $/GPU-hr
   const occ=useGpu?1:(p.occupancy!=null?p.occupancy:1); // PropCo lease-up / occupancy
-  const gpuMW=useGpu?target*p.powerKW/1000:0;
+  const pkEff=p.powerKW*(1+(p.netPowerPct||0)); // effective IT power/node incl external network fabric (switches + optics)
+  const gpuMW=useGpu?target*pkEff/1000:0;
   const coloMW=useGpu?(useColo?p.coloMW:0):p.coloMW;  // GPU-off: colo is the whole facility
   const mwIT=gpuMW+coloMW;
   const facTotal=useFac?mwIT*p.facilityPerMW:0;
@@ -548,13 +549,13 @@ function compute(p,tog){
     revGm[m]=bill[m]*baseRental*Math.pow(1-decline,(m-1)/12);
     revC[m]=useColo?coloMW*1000*p.coloRate*(online[m]/target)*Math.pow(1+p.coloEsc,Math.floor((m-1)/12))*occ:0;
     rev[m]=revG[m]+revC[m];
-    elec[m]=online[m]*p.powerKW*p.pue*H*p.elec;
+    elec[m]=online[m]*pkEff*p.pue*H*p.elec;
     warr[m]=(m>Math.round((p.warrantyInclYears||0)*12))?(cumS[m]+cumN[m])*p.warrantyPct/12:0; // OEM warranty bundled in node price for the first warrantyInclYears
     oth[m]=(cumS[m]+cumN[m]+cumF[m])*p.otherPct/12*Math.pow(1+p.gaInfl,Math.floor((m-1)/12));
     othF[m]=cumF[m]*p.otherPct/12*Math.pow(1+p.gaInfl,Math.floor((m-1)/12));
     intR[m]=useFac?gpuMW*1000*p.coloRate*(online[m]/target)*Math.pow(1+p.coloEsc,Math.floor((m-1)/12)):0;
     ga[m]=useGA?rev[m]*p.gaPct:0; // company opex + platform, scales with revenue
-    rentx[m]=useFac?(mwIT*p.siteRentPerMW/12):(online[m]*p.powerKW*p.coloPerKWMo);
+    rentx[m]=useFac?(mwIT*p.siteRentPerMW/12):(online[m]*pkEff*p.coloPerKWMo);
     trans[m]=online[m]>0?p.transitMo:0;
     cashopex[m]=elec[m]+warr[m]+oth[m]+ga[m]+rentx[m]+trans[m];
     ar[m]=useWC?rev[m]*p.arDays/30.4:0;
@@ -634,13 +635,13 @@ function compute(p,tog){
   let cb, costBasis, unitPrice, unitStr, rentMo;
   if(useGpu){
     const ssUtil=p.utilSteady, ssBill=gpus*H*ssUtil;
-    const facGpuPerServer=useFac?(p.powerKW/1000)*p.facilityPerMW:0;
-    const rentPerServerMo=useFac?(p.powerKW/1000*p.siteRentPerMW/12):(p.powerKW*p.coloPerKWMo);
+    const facGpuPerServer=useFac?(pkEff/1000)*p.facilityPerMW:0;
+    const rentPerServerMo=useFac?(pkEff/1000*p.siteRentPerMW/12):(pkEff*p.coloPerKWMo);
     cb={depr:p.serverPrice*(1-p.residualPct)/(p.years*12)/ssBill,
             net:(p.serverPrice*p.netPct*(1-p.netResidualPct)/(p.years*12)+p.transitMo/Math.max(1,target))/ssBill,
             facility:useFac?(facGpuPerServer/(p.facilityLife*12))/ssBill:0,
             rent:rentPerServerMo/ssBill,
-            elec:p.powerKW*p.pue*H*p.elec/ssBill,
+            elec:pkEff*p.pue*H*p.elec/ssBill,
             warr:p.serverPrice*(1+p.netPct)*p.warrantyPct/12/ssBill*Math.max(0,(p.years-(p.warrantyInclYears||0))/p.years),
             oth:(p.serverPrice*(1+p.netPct)+facGpuPerServer)*p.otherPct/12/ssBill,
             ga:useGA?p.gaPct*baseRental:0};
