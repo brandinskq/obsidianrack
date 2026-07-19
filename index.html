@@ -463,7 +463,7 @@ const F_COST=[
   {k:'siteRentPerMW',label:'Ground rent (own-build)',unit:'$k/MW IT/yr',step:10,scale:1e3,tog:'facility',info:'Annual ground lease for the land under an owned facility (own-build only). Gulf industrial land is cheap — a minor cost line here.'},
   {k:'warrantyPct',gpuOnly:true,label:'Warranty & support',unit:'% capex/yr',step:0.5,pct:true,info:'OEM/vendor hardware support & spares, as % of server+network capex per year, charged only AFTER the bundled-warranty window below. 5% ≈ enterprise SLA; 3.5-4% self-maintenance.'},
   {k:'warrantyInclYears',gpuOnly:true,label:'Warranty included in price',unit:'yrs',step:1,info:'Years of OEM warranty already bundled in the node purchase price — no separate support charge during this window. Enterprise HGX systems ship with 3yr. The Warranty & support rate applies only after this period expires.'},
-  {k:'otherPct',label:'Site staff & O&M',unit:'% capex/yr',step:0.5,pct:true,info:'On-site engineers, NOC, facility O&M, as % of total capex per year. 3.5% aligns with itemised staffing + M&E maintenance at comparable DCs. Escalates annually at the O&M inflation rate (salary growth).'},
+  {k:'otherPct',label:'IDC O&M',unit:'% capex/yr',step:0.5,pct:true,info:'IDC operations & maintenance — on-site engineers, NOC, facility O&M and M&E maintenance, as % of total capex per year. 3.5% aligns with itemised staffing + M&E maintenance at comparable DCs. Escalates annually at the O&M inflation rate (salary growth).'},
   {k:'gaPct',label:'Company opex + platform',unit:'% of revenue',step:1,pct:true,tog:'ga',info:'Corporate overhead (management, sales, admin, finance) plus the software platform (orchestration, inference serving, billing, R&D), as % of revenue. Scales with the business. Neoclouds run leaner (open-source Slurm/K8s stack) than managed hyperscaler platforms.'},
   {k:'gaInfl',label:'O&M / salary inflation',unit:'% / yr',step:0.5,pct:true,info:'Annual growth in site staff & O&M, driven mainly by salary escalation.'},
   {k:'residualPct',gpuOnly:true,label:'GPU / server resale value',unit:'% at exit',step:1,pct:true,info:'GPU server resale value at exit, as % of purchase price. H100 held 35-50% at 3yr; 40% is reasonable for a 3yr-old GPU given compute scarcity.'},
@@ -731,10 +731,10 @@ function dollarTable(o){
   if(o.useGpu){
     rows.push(['Server depreciation',o.cb.depr,CC.depr],['Network',o.cb.net,CC.net],['Warranty',o.cb.warr,CC.warr]);
     if(o.useFac)rows.push(['Facility',o.cb.facility,CC.facility]);
-    rows.push([o.useFac?'Ground rent':'Colo fee',o.cb.rent,CC.rent],['Electricity',o.cb.elec,CC.elec],['Site staff',o.cb.oth,CC.oth]);
+    rows.push([o.useFac?'Ground rent':'Colo fee',o.cb.rent,CC.rent],['Electricity',o.cb.elec,CC.elec],['IDC O&amp;M',o.cb.oth,CC.oth]);
     if(o.useGA)rows.push(['Corporate G&amp;A',o.cb.ga,CC.ga]);
   }else{
-    rows.push(['Facility depreciation',o.cb.depr,CC.depr],['Ground rent',o.cb.rent,CC.rent],['O&amp;M',o.cb.oth,CC.oth]);
+    rows.push(['Facility depreciation',o.cb.depr,CC.depr],['Ground rent',o.cb.rent,CC.rent],['IDC O&amp;M',o.cb.oth,CC.oth]);
     if(o.useGA)rows.push(['Corporate G&amp;A',o.cb.ga,CC.ga]);
   }
   const body=rows.filter(r=>r[1]>0.0001).map(([l,v,c])=>`<tr><td style="text-align:left">${sw(c)}${l}</td><td style="color:var(--ink)">${dol(v)}</td><td>${pc(v).toFixed(0)}%</td></tr>`).join('');
@@ -1008,7 +1008,7 @@ function render(){
       ${plRow('Electricity',o.yrs.map(y=>-y.elec))}
       ${plRow('Warranty & support',o.yrs.map(y=>-y.warr))}
       ${o.yrs.some(y=>y.trans>0)?plRow('Network transit',o.yrs.map(y=>-y.trans)):''}
-      ${plRow('Site staff & O&M',o.yrs.map(y=>-y.oth))}
+      ${plRow('IDC O&M',o.yrs.map(y=>-y.oth))}
       ${plRow(o.useFac?'Site ground rent':'Colocation fees',o.yrs.map(y=>-y.rent))}
       ${o.useGA?plRow('Corporate G&A',o.yrs.map(y=>-y.ga)):''}
       ${plRow('EBITDA',o.yrs.map(y=>y.ebitda),true)}
