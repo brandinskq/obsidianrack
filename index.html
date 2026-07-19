@@ -263,9 +263,14 @@
         <input type="range" id="netPct_r" min="0" max="25" step="1">
       </div>
       <div class="drv">
-        <div class="row"><label>GPU Power<span class="hint" id="powerNote">HGX B300 node</span><span class="ttip" data-tip="IT power draw per node. B300 8-GPU ≈ 11.2kW GPUs + 2-3kW CPU/mem/NIC = 13-15kW. The external network fabric (switches + optics) adds ~10% on top; the note shows node + fabric = effective IT power that drives electricity and facility MW sizing.">ⓘ</span></label>
+        <div class="row"><label>GPU Power<span class="hint">HGX B300 node</span><span class="ttip" data-tip="IT power draw per 8-GPU node (GPUs + CPU/mem + in-node NICs). B300 8-GPU ≈ 11.2kW GPUs + 2-3kW CPU/mem/NIC = ~14kW. The external network fabric is the separate 'Network Power' field below. Together they drive electricity and facility MW sizing.">ⓘ</span></label>
           <div class="val"><input type="number" id="powerKW" step="0.5"><span class="unit">kW</span></div></div>
         <input type="range" id="powerKW_r" min="8" max="25" step="0.5">
+      </div>
+      <div class="drv">
+        <div class="row"><label>Network Power<span class="hint">IB/Spectrum fabric · switches + optics</span><span class="ttip" data-tip="External network fabric power per node — leaf/spine InfiniBand/Spectrum switches + optics, outside the 8-GPU node. ≈10% of GPU power for rail-optimized 800G clusters. Added on top of GPU Power for electricity and facility MW sizing.">ⓘ</span></label>
+          <div class="val"><input type="number" id="netPowerKW" step="0.1"><span class="unit">kW</span></div></div>
+        <input type="range" id="netPowerKW_r" min="0" max="5" step="0.1">
       </div>
       <div class="drv">
         <div class="row"><label>Electricity price<span class="hint">grid tariff</span><span class="ttip" data-tip="Grid electricity tariff. Saudi industrial power ≈ $0.047/kWh — among the cheapest globally, a core structural advantage. Multiplied by PUE.">ⓘ</span></label>
@@ -355,7 +360,7 @@ const DEF={
   servers:128, gpus:8, deployMonths:3, leadMonths:2, lockYears:5,
   coloMW:2, coloRate:220, coloLeaseYears:10, coloEsc:0.025,
   rentalDecline:0.12, utilStart:1.0, utilSteady:1.0, utilRamp:6, // wholesale take-or-pay: 100% billed
-  powerKW:14, netPowerPct:0.10, pue:1.45, warrantyPct:0.05, warrantyInclYears:3, otherPct:0.035, residualPct:0.20, netResidualPct:0.20, tax:0.15, saudiPct:1.00, occupancy:0.90, rackKW:0,
+  powerKW:14, netPowerKW:1.4, pue:1.45, warrantyPct:0.05, warrantyInclYears:3, otherPct:0.035, residualPct:0.20, netResidualPct:0.20, tax:0.15, saudiPct:1.00, occupancy:0.90, rackKW:0,
   gaPct:0.12, gaInfl:0.08,
   facilityPerMW:12000000, facilityLife:20,
   siteRentPerMW:150000, coloPerKWMo:200,
@@ -511,7 +516,7 @@ function compute(p,tog){
   // TaaS blends the Text/Audio/Image/Video modality mix into one effective $/GPU-hr; cost stays the shared fleet
   const baseRental=useTaas?taasBlended(p).rental:p.rental; // blended effective $/GPU-hr
   const occ=useGpu?1:(p.occupancy!=null?p.occupancy:1); // PropCo lease-up / occupancy
-  const pkEff=p.powerKW*(1+(p.netPowerPct||0)); // effective IT power/node incl external network fabric (switches + optics)
+  const pkEff=p.powerKW+(p.netPowerKW||0); // effective IT power/node = GPU power + external network fabric (switches + optics)
   const gpuMW=useGpu?target*pkEff/1000:0;
   const coloMW=useGpu?(useColo?p.coloMW:0):p.coloMW;  // GPU-off: colo is the whole facility
   const mwIT=gpuMW+coloMW;
@@ -1067,7 +1072,6 @@ function render(){
   </div>`;
   document.getElementById('rentNote').textContent='start · ≈'+money(o.rentMo)+'/GPU/mo';
   document.getElementById('srvNote').textContent=S.servers.toLocaleString()+' × 8-GPU nodes · '+o.gpuMW.toFixed(2)+' MW IT';
-  (()=>{const f=S.powerKW*(S.netPowerPct||0),pn=document.getElementById('powerNote');if(pn)pn.textContent=`${S.powerKW} kW node + ${f.toFixed(1)} kW fabric = ${(S.powerKW+f).toFixed(1)} kW`;})();
 }
 function plRow(label,arr,bold){
   const tot=arr.reduce((s,v)=>s+v,0);
@@ -1077,7 +1081,7 @@ function plRow(label,arr,bold){
 }
 
 /* ═══════════════ wiring ═══════════════ */
-const PRIM=[['serverPrice'],['netPct',0.01],['powerKW'],['elec'],['rental'],['facilityPerMW',1e6],['years']];
+const PRIM=[['serverPrice'],['netPct',0.01],['powerKW'],['netPowerKW'],['elec'],['rental'],['facilityPerMW',1e6],['years']];
 function bindGpuCount(){
   const n=document.getElementById('gpuCount'),r=document.getElementById('gpuCount_r');
   const g=S.servers*S.gpus;
@@ -1160,7 +1164,7 @@ function renderModelBar(){
 function setModel(id){
   const m=GPU_MODELS.find(x=>x.id===id); if(!m)return;
   GPU=id;
-  S.gpus=m.gpus; S.powerKW=m.power; S.serverPrice=m.cost;
+  S.gpus=m.gpus; S.powerKW=m.power; S.netPowerKW=+(m.power*0.10).toFixed(2); S.serverPrice=m.cost;
   S.rental=blendRental(m,S.wsShare); // 65/35 wholesale/on-demand blend by default
   if(m.net!=null)S.netPct=m.net; // GB300 rack bundles NVLink → only inter-rack fabric is extra
   updateWsNote(m);
