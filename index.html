@@ -355,7 +355,7 @@ const DEF={
   servers:128, gpus:8, deployMonths:3, leadMonths:2, lockYears:5,
   coloMW:2, coloRate:220, coloLeaseYears:10, coloEsc:0.025,
   rentalDecline:0.12, utilStart:1.0, utilSteady:1.0, utilRamp:6, // wholesale take-or-pay: 100% billed
-  powerKW:15, pue:1.45, warrantyPct:0.05, warrantyInclYears:3, otherPct:0.035, residualPct:0.20, netResidualPct:0.20, tax:0.15, saudiPct:1.00, occupancy:0.90, rackKW:0,
+  powerKW:14, pue:1.45, warrantyPct:0.05, warrantyInclYears:3, otherPct:0.035, residualPct:0.20, netResidualPct:0.20, tax:0.15, saudiPct:1.00, occupancy:0.90, rackKW:0,
   gaPct:0.12, gaInfl:0.08,
   facilityPerMW:12000000, facilityLife:20,
   siteRentPerMW:150000, coloPerKWMo:200,
@@ -399,7 +399,7 @@ const GPU_MODELS=[
   {id:'h100',  name:'H100 SXM',    gpus:8,  power:10.2, cost:260000,  liquid:false, unit:'node', ws:2.50,  od:6.88,  net:0.12},
   {id:'h200',  name:'H200',        gpus:8,  power:10.4, cost:320000,  liquid:false, unit:'node', ws:2.50,  od:10.00, net:0.12},
   {id:'b200',  name:'B200',        gpus:8,  power:14.0, cost:420000,  liquid:false, unit:'node', ws:3.60,  od:13.00, net:0.12},
-  {id:'b300',  name:'B300',        gpus:8,  power:15.0, cost:550000,  liquid:false, unit:'node', ws:4.40,  od:14.00, net:0.12},
+  {id:'b300',  name:'B300',        gpus:8,  power:14.0, cost:550000,  liquid:false, unit:'node', ws:4.40,  od:14.00, net:0.12},
   {id:'gb300', name:'GB300 NVL72', gpus:72, power:140,  cost:6300000, liquid:true,  unit:'rack', ws:10.50, od:16.00, net:0.03},
 ];
 const blendRental=(m,s)=>s*m.ws+(1-s)*m.od; // s = wholesale share (0..1)
