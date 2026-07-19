@@ -646,11 +646,12 @@ function compute(p,tog){
             net:(p.serverPrice*p.netPct*(1-p.netResidualPct)/(p.years*12)+p.transitMo/Math.max(1,target))/ssBill,
             facility:useFac?(facGpuPerServer/(p.facilityLife*12))/ssBill:0,
             rent:rentPerServerMo/ssBill,
-            elec:pkEff*p.pue*H*p.elec/ssBill,
+            elec:p.powerKW*p.pue*H*p.elec/ssBill,
+            netpower:(p.netPowerKW||0)*p.pue*H*p.elec/ssBill,
             warr:p.serverPrice*(1+p.netPct)*p.warrantyPct/12/ssBill*Math.max(0,(p.years-(p.warrantyInclYears||0))/p.years),
             oth:(p.serverPrice*(1+p.netPct)+facGpuPerServer)*p.otherPct/12/ssBill,
             ga:useGA?p.gaPct*baseRental:0};
-    costBasis=cb.depr+cb.net+cb.facility+cb.rent+cb.elec+cb.warr+cb.oth+cb.ga;
+    costBasis=cb.depr+cb.net+cb.facility+cb.rent+cb.elec+cb.netpower+cb.warr+cb.oth+cb.ga;
     unitPrice=baseRental; unitStr='/GPU-hr'; rentMo=baseRental*H*p.utilSteady;
     // TaaS keeps $/GPU-hr unit economics — the common denominator across mixed token/image/second billing units
   } else {
@@ -688,7 +689,7 @@ const irrf=v=>v==null?'n/a':(v*100).toFixed(0)+'%';
 const yrf=v=>v==null?'—':v.toFixed(2)+' yr';
 
 /* ═══════════════ charts (SVG) ═══════════════ */
-const CC={depr:'#c8ff00',net:'#9fd41f',warr:'#5f7d00',facility:'#7dd3fc',rent:'#4a90b8',elec:'#2e5f7d',oth:'#8a8a8a',ga:'#c084fc',profit:'#c8ff00',loss:'#ff5c6c'};
+const CC={depr:'#c8ff00',net:'#9fd41f',warr:'#5f7d00',facility:'#7dd3fc',rent:'#4a90b8',elec:'#2e5f7d',netpower:'#4a7d99',oth:'#8a8a8a',ga:'#c084fc',profit:'#c8ff00',loss:'#ff5c6c'};
 const MODE_CC={txt:'#c8ff00',aud:'#7dd3fc',img:'#c084fc',vid:'#ff8c42'};
 function modalitySplit(){ // TaaS: capacity-mix vs revenue-share bars + legend
   const modes=S.modes||[]; const mixSum=modes.reduce((s,m)=>s+m.mix,0)||1;
@@ -717,7 +718,7 @@ function tierSplit(){ // GaaS: wholesale vs on-demand capacity/price/revenue sho
 }
 function dollarBar(o,price){
   const W=640,H=70,pad=8,barH=30,y=16;
-  const segs=[['depr',o.cb.depr],['net',o.cb.net||0],['warr',o.cb.warr],['facility',o.cb.facility||0],['rent',o.cb.rent||0],['elec',o.cb.elec],['oth',o.cb.oth],['ga',o.cb.ga||0]];
+  const segs=[['depr',o.cb.depr],['net',o.cb.net||0],['warr',o.cb.warr],['facility',o.cb.facility||0],['rent',o.cb.rent||0],['elec',o.cb.elec],['netpower',o.cb.netpower||0],['oth',o.cb.oth],['ga',o.cb.ga||0]];
   const scaleMax=Math.max(price,o.costBasis)*1.03, sc=x=>(x/scaleMax)*(W-2*pad);
   let x=pad,r='';
   segs.forEach(([k,v])=>{const w=sc(v); if(w>0.3)r+=`<rect x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="${barH}" fill="${CC[k]}"/>`; x+=w;});
@@ -736,7 +737,7 @@ function dollarTable(o){
   if(o.useGpu){
     rows.push(['Server depreciation',o.cb.depr,CC.depr],['Network',o.cb.net,CC.net],['Warranty',o.cb.warr,CC.warr]);
     if(o.useFac)rows.push(['Facility',o.cb.facility,CC.facility]);
-    rows.push([o.useFac?'Ground rent':'Colo fee',o.cb.rent,CC.rent],['Electricity',o.cb.elec,CC.elec],['IDC O&amp;M',o.cb.oth,CC.oth]);
+    rows.push([o.useFac?'Ground rent':'Colo fee',o.cb.rent,CC.rent],['Electricity',o.cb.elec,CC.elec],['Network power',o.cb.netpower,CC.netpower],['IDC O&amp;M',o.cb.oth,CC.oth]);
     if(o.useGA)rows.push(['Corporate G&amp;A',o.cb.ga,CC.ga]);
   }else{
     rows.push(['Facility depreciation',o.cb.depr,CC.depr],['Ground rent',o.cb.rent,CC.rent],['IDC O&amp;M',o.cb.oth,CC.oth]);
