@@ -674,7 +674,7 @@ function compute(p,tog){
   const peakEquity=Math.max(0,-Math.min(0,...cumEq.slice(1)));
 
   return {N,useDebt,useFac,useGA,useWC,useExit,useExitCur,useColo,gpuMW,coloMW,totalCapex,servCapex:useGpu?target*p.serverPrice:0,netCapex,facTotal,mwIT,facExit,peakDebt,debtEnd,residual,servResidual,totalDebt,termProj,peakEquity,arEnd:ar[N],
-    pIRR,eIRR,projNPV,eqNPV,moic,minDSCR,minICR,totRev,totNI,totEb,
+    pIRR,eIRR,projNPV,eqNPV,moic,cashBack:inflow,minDSCR,minICR,totRev,totNI,totEb,
     paybackYears:payM==null?null:payM/12,
     cb,costBasis,margin,marginPct,avgEbMargin,rentMo,useGpu,useTaas,unitPrice,unitStr,
     yrs,mo};
@@ -943,7 +943,8 @@ function render(){
     ${kpi('Net margin',o.totRev>0?(o.totNI/o.totRev*100).toFixed(1)+'%':'—','net profit / revenue over hold',o.totNI>=0?'var(--pass)':'var(--fail)')}
     ${kpi('Project IRR',irrf(o.pIRR),'unlevered')}
     ${kpi('Equity IRR',T.debt?irrf(o.eIRR):'—',T.debt?'levered':'debt off',T.debt?'var(--equity)':'var(--dim)')}
-    ${kpi('Equity MOIC',T.debt&&o.moic!=null?o.moic.toFixed(2)+'x':'—',null,T.debt?'var(--equity)':'var(--dim)')}
+    ${kpi('Equity MOIC',o.moic!=null?o.moic.toFixed(2)+'x':'—','× money back incl. residual',o.moic!=null?'var(--equity)':'var(--dim)')}
+    ${kpi('Cash back',money(o.cashBack),'total returned to equity, incl. residual','var(--pass)')}
     ${kpi('Payback',yrf(o.paybackYears),o.paybackYears&&o.paybackYears<=S.years?'within hold':'beyond hold')}
     ${kpi('Project NPV',money(o.projNPV),'@ '+(S.disc*100).toFixed(0)+'% hurdle',o.projNPV>=0?'var(--pass)':'var(--fail)')}
     ${kpi('Avg EBITDA margin',pctf(o.avgEbMargin),'over hold')}
